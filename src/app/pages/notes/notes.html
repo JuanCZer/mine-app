@@ -1,0 +1,88 @@
+<section class="intro">
+  <div>
+    <span>GESTIÓN DE INCIDENCIAS</span>
+    <h2>Una incidencia. Cuatro puntos.</h2>
+    <p>Registro, evidencias y validaciones por fase en un único seguimiento.</p>
+  </div>
+  <button type="button" [disabled]="busy()" (click)="newNote()">＋ Nueva incidencia</button>
+</section>
+@if (error()) {<p class="error" role="alert">{{ error() }}</p>}
+@if (message()) {<p class="message" role="status">{{ message() }}</p>}
+<section class="board">
+  <aside class="notes-list">
+    <label class="search"><input #query type="search" aria-label="Buscar incidencias" placeholder="Buscar incidencias…" (input)="search.set(query.value)" /></label>
+    <div class="list-heading"><strong>{{ filtered().length }} INCIDENCIAS</strong><button type="button" [disabled]="busy()" (click)="load()">Recargar incidencias</button></div>
+    <div class="items">
+      @if (loading()) {<p class="empty" role="status">Cargando incidencias…</p>}
+      @for (note of filtered(); track note.id) {
+        <article [class.active]="selected()?.id === note.id">
+          <button type="button" class="select-note" [disabled]="busy()" (click)="edit(note)"><strong>{{ note.title || 'Incidencia sin identificar' }}</strong><span>{{ note.content }}</span><b>{{ noteProgress(note) }}</b><time>{{ note.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</time></button>
+          <button class="remove" type="button" [disabled]="busy()" [attr.aria-label]="'Eliminar incidencia ' + note.title" (click)="remove(note)">×</button>
+        </article>
+      } @empty {
+        @if (!loading()) {<p class="empty">{{ search() ? 'No hay incidencias que coincidan.' : 'Registra una incidencia para iniciar el seguimiento.' }}</p>}
+      }
+    </div>
+  </aside>
+  <div class="editor">
+    @if (selected()) {
+      <app-note-workflow
+        [note]="selected()"
+        [resetToken]="resetToken()"
+        [basePending]="baseDirty()"
+        [parentBusy]="saving() || loading()"
+        (updated)="updated($event)"
+        (dirtyChange)="phaseDirty.set($event)"
+        (busyChange)="workflowBusy.set($event)"
+      >
+        <section noteGeneral class="identity">
+          <h4>Alerta I&amp;W y geolocalización de anomalía</h4>
+          <p>Estos datos identifican la anomalía que I&amp;W transfiere a VELES.</p>
+          <form [formGroup]="form" (ngSubmit)="save()">
+            <label>Identificador de alerta I&amp;W<input formControlName="title" maxlength="120" placeholder="Ej. I&W-2026-014 · anomalía de terreno" /></label>
+            <div class="coordinates">
+              <label class="state">Corredor rural o área de interés<input formControlName="state" maxlength="100" placeholder="Corredor crítico, ruta o sector" /></label>
+              <label>Latitud de anomalía<input type="number" formControlName="altitude" min="-90" max="90" step="any" placeholder="Ej. 19.4326" /></label>
+              <label>Longitud de anomalía<input type="number" formControlName="longitude" min="-180" max="180" step="any" placeholder="Ej. -99.1332" /></label>
+            </div>
+            <label>Actividad anómala o cambio de superficie<textarea formControlName="content" maxlength="10000" rows="3" placeholder="Cambio observado antes de que la amenaza esté activa"></textarea></label>
+            @if (baseLocked()) {
+              <p class="hint">Estos datos quedaron vinculados a la validación de la Fase 1.</p>
+            } @else {
+              <div class="actions"><small>{{ baseDirty() ? 'Cambios sin guardar' : 'Datos I&W guardados' }}</small><button type="submit" [disabled]="busy() || form.invalid || !baseDirty()">{{ saving() ? 'Guardando…' : 'Guardar datos I&W' }}</button></div>
+            }
+          </form>
+        </section>
+      </app-note-workflow>
+    } @else {
+      <app-note-workflow [note]="null" [parentBusy]="saving() || loading()" [showEmpty]="false" />
+      <app-note-phase-editor
+        class="initial-phase"
+        [note]="draftNote()"
+        [phase]="initialPhase"
+        [resetToken]="resetToken()"
+        [editable]="!saving() && !loading()"
+        [busy]="saving() || loading()"
+        [basePending]="form.invalid"
+        [basePendingMessage]="'Completa primero la identificación y geolocalización I&W.'"
+        (saved)="createWithPhase($event)"
+        (dirtyChange)="phaseDirty.set($event)"
+      >
+        <section noteGeneral class="identity">
+          <h4>Alerta I&amp;W y geolocalización de anomalía</h4>
+          <p>Inicia aquí la Fase 1. Estos datos identifican la anomalía que se transfiere a VELES.</p>
+          <form [formGroup]="form" (ngSubmit)="$event.preventDefault()">
+            <label>Identificador de alerta I&amp;W<input formControlName="title" maxlength="120" placeholder="Ej. I&W-2026-014 · anomalía de terreno" /></label>
+            <div class="coordinates">
+              <label class="state">Corredor rural o área de interés<input formControlName="state" maxlength="100" placeholder="Corredor crítico, ruta o sector" /></label>
+              <label>Latitud de anomalía<input type="number" formControlName="altitude" min="-90" max="90" step="any" placeholder="Ej. 19.4326" /></label>
+              <label>Longitud de anomalía<input type="number" formControlName="longitude" min="-180" max="180" step="any" placeholder="Ej. -99.1332" /></label>
+            </div>
+            <label>Actividad anómala o cambio de superficie<textarea formControlName="content" maxlength="10000" rows="3" placeholder="Cambio observado antes de que la amenaza esté activa"></textarea></label>
+            <p class="hint">Completa debajo los parámetros IF1200A, la comparación diferencial y el resultado I&amp;W. El botón de guardar creará la incidencia junto con el borrador completo de Fase 1.</p>
+          </form>
+        </section>
+      </app-note-phase-editor>
+    }
+  </div>
+</section>

@@ -1,0 +1,204 @@
+<section class="intro">
+  <div>
+    <span class="eyebrow">ARQUITECTURA C-IED / GDS</span>
+    <h2>Centro de detección<span>.</span></h2>
+    <p>De un indicio a un expediente documentado. Un flujo conectado, capa por capa.</p>
+  </div>
+  <button class="primary" type="button" (click)="newCase()">＋ Nuevo expediente</button>
+</section>
+<div class="mode">
+  <span><i></i> Registro local</span>
+  <p>Datos guardados en este navegador · sensores sin conectar · revisión humana</p>
+  <span class="source">Basado en el documento GDS</span>
+</div>
+@if (store.storageError()) {
+  <p class="error" role="alert">{{ store.storageError() }}</p>
+}
+@if (error() && !creating()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+<app-detection-overview
+  [cases]="store.cases()"
+  [selected]="stage()"
+  (selectedChange)="filter('stage', $event); filter('status', 'open')"
+/>
+<section class="registry">
+  <div class="registry-heading">
+    <div>
+      <h3>Expedientes</h3>
+      <span>{{ filtered().length }} registros{{ hasFilters() ? ' filtrados' : ' en total' }}</span>
+    </div>
+    <div class="tools">
+      <button
+        type="button"
+        [attr.aria-pressed]="mapVisible()"
+        (click)="mapVisible.set(!mapVisible())"
+      >
+        {{ mapVisible() ? 'Ocultar mapa' : '⌖ Ver mapa' }}</button
+      ><button type="button" [disabled]="!filtered().length" (click)="export('json')">↓ JSON</button
+      ><button type="button" [disabled]="!filtered().length" (click)="export('geojson')">
+        ↓ GeoJSON
+      </button>
+    </div>
+  </div>
+  <div class="filters">
+    <label class="search"
+      ><span class="sr-only">Buscar expedientes</span
+      ><input
+        #query
+        type="search"
+        [value]="search()"
+        placeholder="Buscar por caso, ubicación o responsable…"
+        (input)="filter('search', query.value)"
+    /></label>
+    <label
+      ><span class="sr-only">Filtrar por etapa</span
+      ><select #stageSelect [value]="stage()" (change)="filter('stage', stageSelect.value)">
+        <option value="">Todas las capas</option>
+        @for (layer of layers; track layer.id) {
+          <option [value]="layer.id">{{ layer.number }} · {{ layer.title }}</option>
+        }
+      </select></label
+    >
+    <label
+      ><span class="sr-only">Filtrar por prioridad</span
+      ><select
+        #prioritySelect
+        [value]="priority()"
+        (change)="filter('priority', prioritySelect.value)"
+      >
+        <option value="">Toda prioridad</option>
+        <option value="high">Alta</option>
+        <option value="medium">Media</option>
+        <option value="low">Baja</option>
+      </select></label
+    >
+    <label
+      ><span class="sr-only">Filtrar por estado</span
+      ><select #statusSelect [value]="status()" (change)="filter('status', statusSelect.value)">
+        <option value="">Todos los estados</option>
+        <option value="open">Abiertos</option>
+        <option value="closed">Cerrados</option>
+        <option value="discarded">Falsos positivos</option>
+      </select></label
+    >
+    @if (hasFilters()) {
+      <button type="button" class="text-button" (click)="clearFilters()">Limpiar</button>
+    }
+  </div>
+  @defer (when mapVisible()) {
+    @if (mapVisible()) {
+      <div class="map-wrap"><app-case-map [cases]="filtered()" (opened)="open($event)" /></div>
+    }
+  }
+  @if (visible().length) {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>EXPEDIENTE</th>
+            <th>UBICACIÓN</th>
+            <th>ETAPA / ESTADO</th>
+            <th>PRIORIDAD</th>
+            <th>ACTUALIZACIÓN</th>
+            <th><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of visible(); track item.id) {
+            <tr>
+              <td>
+                <a class="case-title" [routerLink]="['/deteccion', item.id]">{{ item.title }}</a
+                ><small
+                  >{{ item.code }}
+                  @if (item.demo) {
+                    <b class="demo">EJEMPLO</b>
+                  }
+                </small>
+              </td>
+              <td>
+                <strong>{{ item.municipality }}</strong
+                ><small>{{ item.state }} · {{ soils[item.soil] }}</small
+                ><small class="coords"
+                  >{{ item.latitude | number: '1.4-5' }},
+                  {{ item.longitude | number: '1.4-5' }}</small
+                >
+              </td>
+              <td>
+                <span class="stage-dot"></span>{{ stageLabel(item.stage)
+                }}<small>{{
+                  item.status === 'open'
+                    ? 'En revisión'
+                    : item.status === 'discarded'
+                      ? 'Cerrado · falso positivo'
+                      : 'Cerrado con informe'
+                }}</small>
+              </td>
+              <td>
+                <span class="priority" [class]="'priority ' + item.priority">{{
+                  priorities[item.priority]
+                }}</span>
+              </td>
+              <td>
+                <strong>{{ item.updatedAt | date: 'dd/MM/yyyy' }}</strong
+                ><small>{{ item.owner }}</small>
+              </td>
+              <td>
+                <a
+                  class="arrow"
+                  [routerLink]="['/deteccion', item.id]"
+                  [attr.aria-label]="'Abrir ' + item.title"
+                  >→</a
+                >
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <span>Página {{ page() }} de {{ pageCount() }} · 10 registros por página</span>
+      <div>
+        <button type="button" [disabled]="page() === 1" (click)="page.set(page() - 1)">
+          ← Anterior</button
+        ><button type="button" [disabled]="page() >= pageCount()" (click)="page.set(page() + 1)">
+          Siguiente →
+        </button>
+      </div>
+    </div>
+  } @else {
+    <div class="empty">
+      <span class="empty-icon">⌖</span>
+      <h3>{{ hasFilters() ? 'Sin coincidencias' : 'Todo comienza con un indicio' }}</h3>
+      <p>
+        {{
+          hasFilters()
+            ? 'Ajusta los filtros para consultar otros expedientes.'
+            : 'Registra la primera anomalía y reúne la evidencia de cada capa en un mismo lugar.'
+        }}
+      </p>
+      @if (hasFilters()) {
+        <button type="button" (click)="clearFilters()">Limpiar filtros</button>
+      } @else {
+        <div>
+          <button type="button" (click)="newCase()">Crear el primer expediente</button
+          ><button class="text-button" type="button" (click)="addExample()">
+            Explorar con un ejemplo ficticio →
+          </button>
+        </div>
+      }
+    </div>
+  }
+</section>
+<p class="footnote">
+  Los indicadores se calculan únicamente con los expedientes guardados aquí, incluidos los ejemplos
+  identificados. Ningún registro certifica por sí mismo la seguridad de una zona.
+</p>
+<dialog #createDialog aria-label="Crear expediente de detección" (close)="creating.set(false)">
+  @if (creating()) {
+    @if (error()) {
+      <p class="error dialog-error" role="alert">{{ error() }}</p>
+    }
+    <app-case-form (saved)="create($event)" (cancelled)="closeDialog()" />
+  }
+</dialog>

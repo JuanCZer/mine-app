@@ -1,0 +1,48 @@
+<div class="shell" [class.menu-open]="menuOpen">
+  <aside class="sidebar">
+    <a class="brand" routerLink="/incidencias" (click)="menuOpen = false">
+      <span class="brand-mark">G</span>
+      <span><strong>GDS</strong><small>CENTRO C-IED</small></span>
+    </a>
+    <nav aria-label="Navegación principal">
+      <span class="nav-caption">GESTIÓN OPERATIVA</span>
+      <a routerLink="/incidencias" routerLinkActive="active" (click)="menuOpen = false">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l3 3V20.5H7zM14 3.5v4h3M10 12h4M10 16h4" /></svg> Incidencias
+      </a>
+      <a routerLink="/historial" routerLinkActive="active" (click)="menuOpen = false">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5h10M7 12h10M7 18.5h10M4 5.5h.01M4 12h.01M4 18.5h.01" /></svg> Historial
+      </a>
+      <a routerLink="/mapa" routerLinkActive="active" (click)="menuOpen = false">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg> Mapa
+      </a>
+      <span class="nav-caption tools-caption">HERRAMIENTAS</span>
+      <a routerLink="/deteccion" routerLinkActive="active" (click)="menuOpen = false"
+        ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h11M7 4v6M15 9v6" /></svg> Centro de detección</a
+      >
+    </nav>
+    <div class="sidebar-footer">
+      <div class="avatar">U</div>
+      <div class="person">
+        <strong>Espacio de trabajo</strong><small>Registro y revisión</small>
+      </div>
+    </div>
+  </aside>
+
+  <button class="scrim" type="button" aria-label="Cerrar menú" (click)="menuOpen = false"></button>
+  <section class="workspace">
+    <header>
+      <button class="menu" type="button" aria-label="Abrir menú" (click)="menuOpen = !menuOpen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </button>
+      <div>
+        <span>OPERACIÓN · DETECCIÓN Y SEGUIMIENTO</span>
+        <h1>{{ pageTitle() }}</h1>
+      </div>
+      <div class="status">
+        <i></i><span>{{ isDetection() ? 'REGISTRO LOCAL' : 'ENTORNO CONTROLADO' }}</span><strong>Operativo</strong>
+      </div>
+    </header>
+    <main><router-outlet /></main>
+    <footer>GDS · Incidencias y seguimiento por fases</footer>
+  </section>
+</div>

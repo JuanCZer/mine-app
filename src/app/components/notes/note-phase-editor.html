@@ -1,0 +1,203 @@
+<section class="phase-body">
+  <header>
+    <div>
+      <span>FASE {{ phaseNumber() }} · CAPA {{ definition().number }} DEL PDF</span>
+      <h3>{{ definition().title }}</h3>
+    </div>
+    <b>{{ phase().validatedAt ? 'Validada · solo lectura' : 'Pendiente de validación' }}</b>
+  </header>
+  <p class="description">{{ definition().description }}</p>
+  @if (phase().validatedAt) {
+    <p class="validated-stamp">
+      ✓ Validada{{ phase().validatedBy ? ' por ' + phase().validatedBy : '' }} el
+      {{ phase().validatedAt | date: 'dd/MM/yyyy HH:mm' }}.
+    </p>
+  }
+  @if (phase().stage === 'indications') {
+    <ng-content select="[noteGeneral]" />
+  }
+  <form [formGroup]="form" (ngSubmit)="save()">
+    @switch (phase().stage) {
+      @case ('indications') {
+        <aside class="document-context">
+          <strong>Capa Cero · I&amp;W · IF1200A</strong>
+          <p>Registra una alteración del terreno, no un artefacto confirmado. La comparación LiDAR se hace contra una línea base antes de transferir la coordenada a VELES.</p>
+          <ul class="capability-grid"><li>Blue UAS / NDAA</li><li>43 min de vuelo</li><li>640,000 puntos LiDAR/s</li><li>LiDAR + RGB + térmico</li><li>19.1 lb de carga</li><li>56 mph</li><li>23 nudos de viento</li></ul>
+        </aside>
+        <div class="row">
+          <label>Referencia de línea base<input formControlName="baseline" maxlength="500" placeholder="Folio, fecha y origen del levantamiento inicial" /></label>
+          <label>Referencia de comparación<input formControlName="comparison" maxlength="500" placeholder="Folio, fecha y origen de la observación actual" /></label>
+        </div>
+        <div class="row">
+          <label>Plataforma I&W<select formControlName="indicationPlatform"><option value="">Selecciona la plataforma</option><option value="if1200a">Inspired Flight IF1200A</option></select></label>
+          <label class="check inline"><input type="checkbox" formControlName="blueUasNdaaCompliant" /><span>Cumplimiento Blue UAS / NDAA confirmado</span></label>
+        </div>
+        <div class="row">
+          <label>Duración de vuelo (min)<input type="number" min="0.1" max="43" step="0.1" formControlName="flightDurationMin" placeholder="Hasta 43" /></label>
+          <label>Captura LiDAR (puntos/s)<input type="number" min="640000" step="1" formControlName="lidarPointRate" placeholder="640,000 o más" /></label>
+        </div>
+        <div class="row three">
+          <label>Carga útil (lb)<input type="number" min="0.1" max="19.1" step="0.1" formControlName="payloadLb" placeholder="Hasta 19.1" /></label>
+          <label>Velocidad de misión (mph)<input type="number" min="0.1" max="56" step="0.1" formControlName="missionSpeedMph" placeholder="Hasta 56" /></label>
+          <label>Viento (nudos)<input type="number" min="0" max="23" step="0.1" formControlName="windKnots" placeholder="Hasta 23" /></label>
+        </div>
+        <label>Referencia del modelo 3D denso del corredor<input formControlName="terrainModelReference" maxlength="500" placeholder="Folio o ubicación de la nube de puntos / modelo tridimensional" /></label>
+        <div class="row">
+          <label>Fecha y hora del levantamiento comparativo<input type="datetime-local" formControlName="observedAt" /></label>
+          <label>Fuente del levantamiento<select formControlName="collectionSource"><option value="">Selecciona la fuente</option>@for (source of indicationSources; track source.value) {<option [value]="source.value">{{ source.label }}</option>}</select></label>
+        </div>
+        <div class="row">
+          <label>Tipo de suelo<select formControlName="soil"><option value="unknown">Sin determinar</option><option value="vertisol">Vertisol</option><option value="andosol">Andosol / Luvisol</option><option value="leptosol">Leptosol</option></select></label>
+          <label>Temporada<select formControlName="season"><option value="unknown">Sin determinar</option><option value="dry">Seca</option><option value="rainy">Lluvias</option></select></label>
+        </div>
+        <label>Condiciones de línea base<textarea formControlName="terrainNotes" rows="3" maxlength="2000" placeholder="Topografía, vegetación y firmas del suelo en condiciones no alteradas"></textarea></label>
+        <div class="row">
+          <label>Variación de superficie observada (mm)<input type="number" min="0.001" step="0.001" formControlName="surfaceVariationMm" placeholder="Variación milimétrica" /></label>
+          <label class="check inline"><input type="checkbox" formControlName="differentialAnalysisCompleted" /><span>Algoritmo diferencial ejecutado contra la línea base</span></label>
+        </div>
+        <fieldset class="choice-pair phase-one-actions">
+          <legend>Resultado I&amp;W</legend>
+          <label class="check"><input type="checkbox" formControlName="actionableAlertGenerated" /><span>Alerta procesable generada</span></label>
+          <label class="check"><input type="checkbox" formControlName="personnelNotExposed" /><span>Sin exposición de personal al área de riesgo</span></label>
+          <label class="check"><input type="checkbox" formControlName="coordinateTransferredToVeles" /><span>Coordenada de anomalía transferida a VELES</span></label>
+        </fieldset>
+        <fieldset class="choices">
+          <legend>Firmas de alteración observadas</legend>
+          <p>Selecciona las firmas identificadas mediante la comparación diferencial.</p>
+          @for (signature of indicationSignatures; track signature.id) {
+            <label class="check"><input #signatureCheck type="checkbox" [checked]="form.controls.signatures.value.includes(signature.id)" (change)="toggleSignature(signature.id, signatureCheck.checked)" /><span>{{ signature.label }}</span></label>
+          }
+        </fieldset>
+        @if (form.controls.signatures.value.includes('surface-removal')) {
+          <label class="depth">Profundidad estimada de depresión (cm)<input type="number" min="5" max="15" step="0.1" formControlName="depressionDepthCm" placeholder="5–15" /><small>El PDF describe una firma típica de remoción entre 5 y 15 cm.</small></label>
+        }
+        <label>Causas alternativas consideradas<textarea formControlName="alternativeCauses" rows="3" maxlength="2000" placeholder="Erosión, actividad agrícola, obra civil u otra causa; explica por qué requiere reconocimiento"></textarea></label>
+        <p class="hint">La evidencia LiDAR es obligatoria. RGB e infrarrojo térmico son complementarios; la confirmación técnica corresponde a la Fase 2.</p>
+      }
+      @case ('reconnaissance') {
+        <aside class="document-context">
+          <strong>Capa Uno · Reconocimiento · VELES</strong>
+          <p>VELES confirma y caracteriza la anomalía recibida con GPR, magnetometría, RGB e infrarrojo térmico. La fusión produce un punto georreferenciado y un mapa de riesgo.</p>
+          <ul class="capability-grid"><li>DJI Matrice 400</li><li>RGB 0.2 cm/px</li><li>IR 0.5 cm/px</li><li>Magnetómetro 10+ nT / 30 cm</li><li>GPR 30 cm</li><li>RTK 1–3 cm</li><li>Localización hasta 5 cm</li><li>100,000 m²/día</li><li>59 min de vuelo</li><li>Hasta 6 kg de carga</li><li>25 m/s</li><li>1.2 M imágenes RGB</li><li>8 K IR</li><li>5 K firmas magnéticas</li><li>Catálogo IA: 461 objetos</li></ul>
+        </aside>
+        <div class="row">
+          <label>Lectura magnetométrica (nT)<input type="number" min="10" step="0.1" formControlName="magneticReadingNt" placeholder="≥ 10" /></label>
+          <label>Profundidad GPR observada (cm)<input type="number" min="0.1" max="30" step="0.1" formControlName="gprDepthCm" placeholder="Hasta 30" /></label>
+        </div>
+        <div class="row">
+          <label>Precisión RTK (cm)<input type="number" min="1" max="3" step="0.1" formControlName="rtkAccuracyCm" placeholder="1–3" /></label>
+          <label>Precisión de localización (cm)<input type="number" min="0.1" max="5" step="0.1" formControlName="localizationAccuracyCm" placeholder="Hasta 5" /></label>
+        </div>
+        <div class="row">
+          <label>Probabilidad de amenaza<select formControlName="probability"><option value="">Sin clasificar</option><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+          <label>Prioridad operativa<select formControlName="priority"><option value="">Sin clasificar</option><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+        </div>
+        <label>Referencia del punto georreferenciado<input formControlName="georeferencedPointReference" maxlength="500" placeholder="ID GIS o folio del punto generado por VELES" /></label>
+        <label>Referencia del mapa de riesgo<input formControlName="riskMapReference" maxlength="500" placeholder="Folio o ubicación del mapa de riesgo resultante" /></label>
+        <label>Referencia de clasificación IA de VELES<input formControlName="aiClassificationReference" maxlength="500" placeholder="Folio del resultado de clasificación y correlación IA" /></label>
+        <label class="check single"><input type="checkbox" formControlName="fusionCompleted" /><span>Fusión completada: GPR, magnetometría, RGB e infrarrojo térmico.</span></label>
+        <label>Dictamen técnico<select formControlName="finding"><option value="pending">Pendiente</option><option value="inconclusive">Inconcluso</option><option value="confirmed">Amenaza confirmada</option><option value="false-positive">Falso positivo documentado</option></select></label>
+        <p class="hint">Adjunta una referencia por cada fuente VELES: GPR, magnetometría, RGB e infrarrojo térmico. La fase no se valida con una señal aislada.</p>
+      }
+      @case ('surveillance') {
+        <aside class="document-context">
+          <strong>Capa Tres · Vigilancia · EO/IR e IMSI Catcher</strong>
+          <p>Certifica el entorno humano antes de la mitigación: actores, dispositivos móviles y patrones que puedan custodiar o activar el objetivo a distancia.</p>
+          <ul class="capability-grid"><li>Captura IMSI / IMEI / TMSI</li><li>EO/IR desde UAV</li><li>Radiogoniometría</li><li>Mapeo en línea y fuera de línea</li><li>2G / 3G / 4G / 5G</li><li>UAV, móvil o mochila</li></ul>
+        </aside>
+        <div class="row">
+          <label>Inicio de observación<input type="datetime-local" formControlName="observationStartedAt" /></label>
+          <label>Cierre de observación<input type="datetime-local" formControlName="observationEndedAt" /></label>
+        </div>
+        <fieldset class="choices compact">
+          <legend>Tecnologías móviles cubiertas</legend>
+          @for (technology of radioTechnologies; track technology) {
+            <label class="check"><input #technologyCheck type="checkbox" [checked]="form.controls.radioTechnologies.value.includes(technology)" (change)="toggleRadioTechnology(technology, technologyCheck.checked)" /><span>{{ technology }}</span></label>
+          }
+        </fieldset>
+        <label>Despliegue empleado<select formControlName="deployment"><option value="">Selecciona el despliegue</option><option value="uav">UAV</option><option value="ground-backpack">Unidad terrestre tipo mochila</option><option value="combined">UAV y unidad terrestre</option></select></label>
+        @if (form.controls.deployment.value === 'uav' || form.controls.deployment.value === 'combined') {
+          <div class="row">
+            <label>Canales de cobertura simultánea<input type="number" min="2" step="1" formControlName="coveredChannels" placeholder="2 o más" /></label>
+            <label class="check inline"><input type="checkbox" formControlName="duplicatedChannelConfiguration" /><span>Configuración duplicada de canales</span></label>
+          </div>
+        }
+        <fieldset class="choices methods">
+          <legend>Capacidades de vigilancia empleadas</legend>
+          <p>Registra cada capacidad ejecutada por la plataforma externa durante este periodo.</p>
+          @for (method of surveillanceMethods; track method.id) {
+            <label class="check"><input #methodCheck type="checkbox" [checked]="form.controls.methods.value.includes(method.id)" (change)="toggleSurveillanceMethod(method.id, methodCheck.checked)" /><span>{{ method.label }}</span></label>
+          }
+        </fieldset>
+        <div class="row">
+          <label>Dispositivos móviles activos detectados<input type="number" min="0" step="1" formControlName="activeDeviceCount" placeholder="0 si no se detectaron" /></label>
+          <label>Actividad humana observada<select formControlName="humanActivity"><option value="">Sin clasificar</option><option value="not-detected">No detectada</option><option value="movement-detected">Personas en movimiento</option><option value="irregular-pattern">Patrón de comportamiento irregular</option><option value="custody-or-activation-risk">Riesgo de custodia o activación</option></select></label>
+        </div>
+        <label>Decisión sobre el entorno humano<select formControlName="environmentDecision"><option value="">Sin decisión</option><option value="clear-for-mitigation">Entorno certificado para mitigación</option><option value="hold-for-reassessment">Mantener y reevaluar</option></select></label>
+        <p class="hint">Se requieren las referencias EO/IR y de captura IMSI, IMEI o TMSI, además de un método de geolocalización o radiogoniometría. Solo una certificación del entorno habilita Fase 4.</p>
+      }
+      @case ('mitigation') {
+        <aside class="document-context">
+          <strong>Capa Dos · Mitigación · Husky / EOD / TECHINT</strong>
+          <p>Ejecuta sobre una coordenada ya caracterizada: interrogación a distancia segura, entrega EOD, neutralización controlada, apertura de ruta y retroalimentación TECHINT.</p>
+          <ul class="capability-grid"><li>2 medios de detección</li><li>1 medio de interrogación</li><li>GPR con traslape</li><li>Brazo con márgenes de seguridad</li><li>STANAG 4569 nivel 4 o 5</li><li>Protección de personal y equipo</li></ul>
+        </aside>
+        <div class="row">
+          <label class="check inline"><input type="checkbox" formControlName="coordinateReceived" /><span>Coordenada exacta de VELES recibida</span></label>
+          <label>Plataforma de limpieza<select formControlName="platform"><option value="">Selecciona la plataforma</option><option value="husky-route-clearance">Husky · limpieza de rutas</option></select></label>
+        </div>
+        <div class="row">
+          <label>Nivel de protección STANAG 4569<select formControlName="protectionLevel"><option value="">Selecciona el nivel</option><option value="stanag-4">Nivel 4 · proyectil AP de 14.5 mm</option><option value="stanag-5">Nivel 5 · cañón automático de 30 mm</option></select></label>
+          <fieldset class="choice-pair"><legend>Protección confirmada</legend><label class="check"><input type="checkbox" formControlName="personnelProtectionConfirmed" /><span>Personal</span></label><label class="check"><input type="checkbox" formControlName="equipmentProtectionConfirmed" /><span>Equipo</span></label></fieldset>
+        </div>
+        <div class="row three">
+          <label>Medios de detección<input type="number" min="2" step="1" formControlName="detectionAssets" placeholder="2 o más" /></label>
+          <label>Medios de interrogación<input type="number" min="1" step="1" formControlName="interrogationAssets" placeholder="1 o más" /></label>
+          <label>Margen de seguridad (m)<input type="number" min="0.1" step="0.1" formControlName="safetyMarginM" placeholder="Margen aplicado" /></label>
+        </div>
+        <div class="row">
+          <label class="check inline"><input type="checkbox" formControlName="gprCoverageOverlap" /><span>Traslape de cobertura GPR confirmado</span></label>
+          <label class="check inline"><input type="checkbox" formControlName="remoteInterrogationCompleted" /><span>Interrogación completada a distancia segura</span></label>
+        </div>
+        <div class="row three">
+          <label>Tipo de artefacto<input formControlName="artifactType" maxlength="500" placeholder="Caracterización EOD" /></label>
+          <label>Orientación<input formControlName="orientation" maxlength="500" placeholder="Orientación observada" /></label>
+          <label>Mecanismo de activación<input formControlName="activationMechanism" maxlength="500" placeholder="Mecanismo determinado" /></label>
+        </div>
+        <label>Referencia de entrega al operador EOD<input formControlName="eodHandoffReference" maxlength="500" placeholder="Folio de entrega antes de cualquier contacto físico" /></label>
+        <div class="row">
+          <label>Resultado de neutralización<select formControlName="neutralizationResult"><option value="">Sin resultado</option><option value="neutralized">Dispositivo neutralizado de forma controlada</option><option value="not-neutralized">No neutralizado</option></select></label>
+          <label>Resultado de apertura de ruta<select formControlName="routeResult"><option value="">Sin resultado</option><option value="route-opened">Ruta segura abierta</option><option value="not-applicable">No aplica al objetivo</option></select></label>
+        </div>
+        <fieldset class="techint">
+          <legend>Explotación TECHINT posterior a la neutralización</legend>
+          <label>Composición<textarea formControlName="techintComposition" rows="2" maxlength="2000"></textarea></label>
+          <label>Manufactura<textarea formControlName="techintManufacture" rows="2" maxlength="2000"></textarea></label>
+          <label>Firma<textarea formControlName="techintSignature" rows="2" maxlength="2000"></textarea></label>
+        </fieldset>
+        <label>Referencia de retroalimentación al catálogo IA de VELES<input formControlName="catalogFeedbackReference" maxlength="500" placeholder="Folio o identificador de retroalimentación TECHINT" /></label>
+        <p class="hint">Adjunta las evidencias GPR, EOD y TECHINT. El cierre requiere neutralización controlada y la retroalimentación técnica al catálogo de VELES.</p>
+      }
+    }
+  </form>
+</section>
+<app-evidence-panel [evidence]="draft().evidence" [editable]="editable() && !busy()" [allowRemove]="true" [draftMode]="true" [allowedSensors]="evidenceSensors()" (added)="addEvidence($event)" (removed)="removeEvidence($event)" (draftChange)="pendingEvidence.set($event)" />
+@if (editable()) {
+  <section class="validation" aria-label="Validación obligatoria de la fase">
+    <h4>Validación obligatoria</h4>
+    @if (issues().length) {
+      <p>Falta completar:</p>
+      <ul>@for (issue of issues(); track issue) {<li>{{ issue }}</li>}</ul>
+    } @else {
+      <p>Información completa. Guarda el borrador y valida esta fase para continuar.</p>
+    }
+    @if (basePending()) {<p class="notice">{{ basePendingMessage() }}</p>}
+    @if (pendingEvidence()) {<p class="notice">Agrega al borrador la evidencia que estás escribiendo o limpia sus campos.</p>}
+    <div class="actions">
+      <span>{{ dirty() ? 'Cambios sin guardar' : 'Borrador guardado; aún requiere validación' }}</span>
+      <button type="button" class="secondary" [disabled]="busy() || basePending() || pendingEvidence() || form.invalid || !dirty()" (click)="save()">{{ busy() ? 'Procesando…' : 'Guardar borrador de fase' }}</button>
+      <button type="button" class="primary" [disabled]="busy() || basePending() || dirty() || issues().length > 0" (click)="validate()">{{ validationLabel() }}</button>
+    </div>
+    <small>Guardar no valida. La API verifica los requisitos antes de habilitar la siguiente fase.</small>
+  </section>
+}

@@ -1,1 +1,49 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'mapbox-gl/dist/mapbox-gl.css';
+:root {
+  color-scheme: dark;
+  --bg: #07111f;
+  --bg-deep: #040b14;
+  --surface: #0d1b2a;
+  --surface-raised: #11263a;
+  --surface-hover: #173149;
+  --surface-input: #091725;
+  --line: #29455d;
+  --line-strong: #3c607b;
+  --text: #f3f7fb;
+  --text-secondary: #c1d0dc;
+  --text-muted: #91a6b8;
+  --accent: #5bb8e8;
+  --accent-hover: #8ad5f4;
+  --accent-ink: #03101b;
+  --success: #58c48d;
+  --success-soft: #102d29;
+  --warning: #f0bb62;
+  --warning-soft: #362916;
+  --danger: #f07878;
+  --danger-soft: #351d24;
+  --focus: #9be1ff;
+  --shadow-lg: 0 24px 54px rgb(0 0 0 / 0.32);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --ease: 160ms ease;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); }
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 83% -8%, rgb(44 116 161 / 0.18), transparent 32rem),
+    var(--bg);
+  color: var(--text);
+}
+button, input, textarea, select { font-family: inherit; }
+button, a, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  button, a, input, textarea, select { transition: color var(--ease), background-color var(--ease), border-color var(--ease), box-shadow var(--ease), opacity var(--ease), transform var(--ease); }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }

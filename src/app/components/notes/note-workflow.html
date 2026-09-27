@@ -1,0 +1,98 @@
+<section class="workflow" aria-label="Progreso de las cuatro fases de la incidencia">
+  <div class="heading">
+    <div>
+      <span>SEGUIMIENTO DE INCIDENCIA</span>
+      <h2>Progreso por fases</h2>
+    </div>
+    <strong>{{ completed() }} de 4 validadas</strong>
+  </div>
+  <p class="intro">
+    Cada punto indica la ubicación de la incidencia en el proceso. Solo la validación habilita el
+    siguiente punto.
+  </p>
+  <ol class="progress-track" aria-label="Secuencia de fases de la incidencia">
+    @for (layer of layers; track layer.id; let index = $index) {
+      <li
+        [class.active]="note() && selected() === layer.id"
+        [class.complete]="isValidated(layer.id)"
+        [class.locked]="isLocked(layer.id)"
+      >
+        <button
+          type="button"
+          [disabled]="isLocked(layer.id) || busy() || parentBusy()"
+          [attr.aria-current]="note() && selected() === layer.id ? 'step' : null"
+          (click)="select(layer.id)"
+        >
+          <span class="number">{{ isValidated(layer.id) ? '✓' : index + 1 }}</span>
+          <span class="phase-copy"
+            ><small>FASE {{ index + 1 }}</small
+            ><b>{{ layer.title }}</b
+            ><em>{{
+              isValidated(layer.id)
+                ? 'Validada'
+                : isLocked(layer.id)
+                  ? index === 0
+                    ? 'Registra la incidencia'
+                    : 'Bloqueada'
+                  : 'En proceso'
+            }}</em></span
+          >
+        </button>
+      </li>
+    }
+  </ol>
+  <p class="sequence">
+    Secuencia: indicios → reconocimiento → vigilancia → mitigación. La vigilancia se valida antes de
+    la mitigación.
+  </p>
+  @if (error()) {
+    <p class="error" role="alert">
+      {{ error() }} Puedes usar «Recargar incidencias» para obtener la versión actual.
+    </p>
+  }
+  @if (message()) {
+    <p class="success" role="status">{{ message() }}</p>
+  }
+  @if (note(); as record) {
+    @if (workflow().status !== 'open') {
+      <div class="closed">
+        {{
+          workflow().status === 'closed'
+            ? 'Proceso completado: las cuatro fases fueron validadas.'
+            : 'Incidencia cerrada como falso positivo. Las fases posteriores no se inician.'
+        }}
+        Puedes consultar los datos y las validaciones anteriores.
+      </div>
+    }
+    <app-note-phase-editor
+      [note]="record"
+      [phase]="phase()"
+      [resetToken]="resetToken()"
+      [editable]="editable()"
+      [busy]="busy() || parentBusy()"
+      [basePending]="basePending()"
+      (saved)="save($event)"
+      (validated)="validate()"
+      (dirtyChange)="editorDirty.set($event)"
+    >
+      <ng-content select="[noteGeneral]" />
+    </app-note-phase-editor>
+    @if (workflow().history.length) {
+      <details>
+        <summary>Historial de guardados y validaciones ({{ workflow().history.length }})</summary>
+        <app-case-timeline
+          [events]="workflow().history"
+          [subtitle]="'Registro de la API · responsables declarados'"
+        />
+      </details>
+    }
+  } @else if (showEmpty()) {
+    <div class="empty">
+      <strong>Registra primero los datos de la fase 1: indicios tempranos.</strong>
+      <p>
+        Después podrás completar y validar la fase 1. Los puntos de las fases 2, 3 y 4 permanecerán
+        bloqueados hasta validar la anterior.
+      </p>
+    </div>
+  }
+</section>

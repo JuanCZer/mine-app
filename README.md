@@ -1,59 +1,31 @@
-# MineApp
+# GDS · Incidencias y validación por fases
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.0.7.
+Aplicación Angular con API ASP.NET Core. Cada incidencia reúne el registro de indicios, las evidencias y las cuatro fases del proceso: **indicios → reconocimiento → vigilancia → mitigación**.
 
-## Development server
+La ruta inicial `/incidencias` muestra una secuencia de cuatro puntos. Guardar un borrador no permite avanzar: cada fase debe validarse antes de habilitar la siguiente, con comprobaciones tanto en la interfaz como en la API.
 
-To start a local development server, run:
+[Campos, reglas de validación y contrato de la API](docs/note-phases.md).
 
-```bash
-ng serve
-```
+## Ejecutar
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Desde la raíz del proyecto, en dos terminales:
 
 ```bash
-ng generate component component-name
+npm run backend
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Abre `http://localhost:4200`. El login permanece desactivado y se usa el espacio demo. Las incidencias y sus fases se guardan en `backend/Data/notes.json`; las referencias de evidencias no cargan archivos a ese almacén.
+
+El historial `/historial` muestra el avance de cada incidencia y permite abrir sus fases. `/mapa` muestra las coordenadas. La propiedad histórica `altitude` contiene la latitud y se mantiene por compatibilidad.
+
+El [panel local anterior](docs/detection-module.md) sigue accesible en `/deteccion` y conserva su almacenamiento local independiente.
+
+## Verificar
 
 ```bash
-ng generate --help
+npm run build
+npm test -- --watch=false
+dotnet build backend
+python3 backend-tests/test_note_phases.py
 ```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

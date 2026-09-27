@@ -1,0 +1,46 @@
+<section class="metrics" aria-label="Resumen global de expedientes">
+  <article>
+    <span>EXPEDIENTES ABIERTOS</span><strong>{{ openCases().length | number }}</strong
+    ><small>En las cuatro capas</small>
+  </article>
+  <article>
+    <span>PRIORIDAD ALTA</span><strong class="urgent">{{ urgent() | number }}</strong
+    ><small>Pendientes de atención</small>
+  </article>
+  <article>
+    <span>CIERRES DOCUMENTADOS</span><strong>{{ closed() | number }}</strong
+    ><small>Con informe y referencia TECHINT</small>
+  </article>
+  <article>
+    <span>FALSOS POSITIVOS</span><strong>{{ falsePositiveRate() }}</strong
+    ><small>Sobre dictámenes concluyentes</small>
+  </article>
+</section>
+<div class="section-title">
+  <div>
+    <span class="eyebrow">SECUENCIA DE REVISIÓN</span>
+    <h3>Cuatro capas, un solo seguimiento</h3>
+  </div>
+  <small>La vigilancia precede a la mitigación · PDF, p. 26</small>
+</div>
+<section class="layers" aria-label="Filtrar expedientes abiertos por capa">
+  @for (layer of layers; track layer.id) {
+    <button
+      type="button"
+      [class.active]="selected() === layer.id"
+      [attr.aria-pressed]="selected() === layer.id"
+      (click)="selectedChange.emit(selected() === layer.id ? '' : layer.id)"
+    >
+      <div class="layer-top">
+        <span>CAPA {{ layer.number }}</span
+        ><b>{{ count(layer.id) }}</b>
+      </div>
+      <h4>{{ layer.title }}</h4>
+      <p>{{ layer.subtitle }}</p>
+      <div class="layer-bottom">
+        <small>{{ layer.platform.split(' · ')[0] }}</small
+        ><span>↗</span>
+      </div>
+    </button>
+  }
+</section>

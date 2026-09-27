@@ -1,0 +1,221 @@
+<a class="back" routerLink="/deteccion">← Todos los expedientes</a>
+@if (item(); as record) {
+  <section class="intro">
+    <div>
+      <span class="eyebrow"
+        >{{ record.code }}
+        @if (record.demo) {
+          <b>REGISTRO FICTICIO</b>
+        }
+      </span>
+      <h2>{{ record.title }}</h2>
+      <p>
+        {{ record.municipality }}, {{ record.state }} <span>·</span> Responsable: {{ record.owner }}
+      </p>
+    </div>
+    <button type="button" class="secondary" (click)="export()">↓ Exportar expediente</button>
+  </section>
+  <div class="metadata">
+    <span class="priority" [class]="'priority ' + record.priority"
+      >Prioridad {{ priorities[record.priority].toLowerCase() }}</span
+    ><span>{{
+      record.status === 'open'
+        ? 'Expediente abierto'
+        : record.status === 'discarded'
+          ? 'Cerrado · falso positivo'
+          : 'Cerrado con informe'
+    }}</span
+    ><span>⌖ {{ record.latitude | number: '1.4-5' }}, {{ record.longitude | number: '1.4-5' }}</span
+    ><span>Creado {{ record.createdAt | date: 'dd/MM/yyyy' }}</span>
+  </div>
+  <div class="local-notice">
+    Registro local · las evidencias y los dictámenes son declarados por el usuario. No hay
+    procesamiento de sensores ni autorización operativa automática.
+  </div>
+  <app-layer-pipeline
+    [current]="record.stage"
+    [selected]="selected()"
+    [status]="record.status"
+    (selectedChange)="select($event)"
+  />
+  <p class="sequence">
+    Secuencia del documento: capa 00 → capa 01 → capa 03 → capa 02. La revisión de vigilancia debe
+    preceder a la mitigación.
+  </p>
+  @if (message()) {
+    <div class="success" role="status">{{ message() }}</div>
+  }
+  @if (error() || store.storageError()) {
+    <div class="error" role="alert">{{ error() || store.storageError() }}</div>
+  }
+  <div class="content">
+    <div class="main-column">
+      <section class="review panel">
+        <div class="review-heading">
+          <div>
+            <span class="eyebrow">CAPA {{ layer().number }} · PDF, PP. {{ layer().pages }}</span>
+            <h3>{{ layer().title }}</h3>
+          </div>
+          <span class="tag">{{ editable() ? 'Etapa activa' : 'Solo consulta' }}</span>
+        </div>
+        <p class="description">{{ layer().description }}</p>
+        <p class="platform">{{ layer().platform }}</p>
+        <form [formGroup]="form" (ngSubmit)="save()">
+          @switch (selected()) {
+            @case ('indications') {
+              <label
+                >Referencia del levantamiento base<input
+                  formControlName="baseline"
+                  maxlength="500"
+                  placeholder="Folio, fecha o referencia de la condición inicial"
+              /></label>
+              <label
+                >Referencia del levantamiento de comparación<input
+                  formControlName="comparison"
+                  maxlength="500"
+                  placeholder="Folio, fecha o referencia del nuevo levantamiento"
+              /></label>
+              <div class="context-note">
+                Documenta el cambio observado y las posibles causas naturales o agrícolas. El
+                indicio por sí solo no confirma una amenaza.
+              </div>
+            }
+            @case ('reconnaissance') {
+              <label
+                >Dictamen técnico registrado<select formControlName="finding">
+                  <option value="pending">Pendiente de revisión</option>
+                  <option value="inconclusive">Inconcluso · requiere más evidencia</option>
+                  <option value="confirmed">Confirmado por el especialista</option>
+                  <option value="false-positive">Falso positivo documentado</option>
+                </select></label
+              >
+              <div class="context-note">
+                Correlaciona referencias de al menos dos fuentes entre RGB, IR, GPR y magnetometría.
+                El dictamen debe quedar fundamentado por el revisor.
+              </div>
+            }
+            @case ('surveillance') {
+              <label
+                >Estado de la revisión del entorno<select formControlName="environment">
+                  <option value="pending">Pendiente de revisión</option>
+                  <option value="blocked">Bloqueada · requiere nueva evaluación</option>
+                  <option value="reviewed">Revisión documentada por el responsable</option>
+                </select></label
+              >
+              <div class="context-note">
+                Registra la revisión de observaciones EO/IR o del informe externo. Esta pantalla
+                conserva el dictamen; no certifica la ausencia de riesgos.
+              </div>
+            }
+            @case ('mitigation') {
+              <label
+                >Referencia del informe de cierre especializado<input
+                  formControlName="report"
+                  maxlength="500"
+                  placeholder="Folio del informe emitido por el equipo responsable"
+              /></label>
+              <label
+                >Referencia de retroalimentación TECHINT<input
+                  formControlName="techint"
+                  maxlength="500"
+                  placeholder="Folio del análisis o lecciones documentadas"
+              /></label>
+              <div class="context-note">
+                Seguimiento documental de la intervención del equipo especializado. El cierre del
+                expediente no declara una ruta segura.
+              </div>
+            }
+          }
+          <label
+            >Responsable de la revisión<input
+              formControlName="reviewer"
+              maxlength="100"
+              placeholder="Nombre o identificador del revisor"
+          /></label>
+          <label
+            >Fundamento y observaciones<textarea
+              formControlName="notes"
+              rows="5"
+              maxlength="5000"
+              placeholder="Conclusión, evidencias consideradas, limitaciones y asuntos pendientes"
+            ></textarea>
+          </label>
+          @if (editable()) {
+            <div class="save-row">
+              <span>{{
+                dirty() ? 'Cambios sin guardar' : 'Revisión sincronizada con el registro local'
+              }}</span
+              ><button type="submit" class="secondary" [disabled]="form.invalid || !dirty()">
+                Guardar revisión
+              </button>
+            </div>
+          }
+        </form>
+      </section>
+      <app-evidence-panel
+        [evidence]="evidence()"
+        [editable]="editable()"
+        (added)="addEvidence($event)"
+      />
+      @if (editable()) {
+        <section class="handoff panel">
+          <span class="eyebrow">CONTROL DE AVANCE</span>
+          <h3>
+            {{
+              record.stage === 'mitigation' ? 'Cierre documentado' : 'Entrega a la siguiente etapa'
+            }}
+          </h3>
+          @if (issues().length) {
+            <p>Completa estos puntos en la revisión guardada:</p>
+            <ul>
+              @for (issue of issues(); track issue) {
+                <li>{{ issue }}</li>
+              }
+            </ul>
+          } @else {
+            <p>
+              Los campos requeridos están completos. El avance registra la decisión del responsable.
+            </p>
+          }
+          @if (dirty()) {
+            <p class="unsaved">Guarda los cambios de la revisión antes de avanzar.</p>
+          }
+          <button
+            type="button"
+            class="primary"
+            [disabled]="issues().length > 0 || dirty()"
+            (click)="advance()"
+          >
+            {{
+              record.stage === 'mitigation'
+                ? 'Cerrar expediente con informe'
+                : record.stage === 'reconnaissance' &&
+                    record.reviews.reconnaissance.finding === 'false-positive'
+                  ? 'Cerrar como falso positivo'
+                  : 'Completar etapa y continuar →'
+            }}
+          </button>
+        </section>
+      } @else if (record.status !== 'open') {
+        <div class="closed-note">
+          Este expediente está cerrado. Sus revisiones, referencias y bitácora están disponibles
+          para consulta y exportación.
+        </div>
+      }
+    </div>
+    <aside>
+      <app-terrain-context [soil]="record.soil" [season]="record.season" />
+      <section class="panel initial">
+        <span class="eyebrow">OBSERVACIÓN INICIAL</span>
+        <p>{{ record.description }}</p>
+      </section>
+      <app-case-timeline [events]="record.history" />
+    </aside>
+  </div>
+} @else {
+  <section class="not-found">
+    <h2>Expediente no encontrado</h2>
+    <p>El enlace no corresponde a un registro guardado en este navegador.</p>
+    <a routerLink="/deteccion">Volver al centro de detección</a>
+  </section>
+}

@@ -1,0 +1,67 @@
+<section class="intro">
+  <div>
+    <span>HISTORIAL DE INCIDENCIAS</span>
+    <h2>Seguimiento de incidencias.</h2>
+    <p>Consulta cada incidencia y el punto de validación en que se encuentra.</p>
+  </div>
+  <a routerLink="/incidencias">＋ Nueva incidencia</a>
+</section>
+<section class="records">
+  <header>
+    <label
+      ><span>⌕</span
+      ><input
+        #query
+        type="search"
+        placeholder="Buscar por identificador, indicio o área"
+        (input)="search.set(query.value)" /></label
+    ><strong>{{ filtered().length }} REGISTROS</strong>
+  </header>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Incidencia</th>
+          <th>Validaciones</th>
+          <th>Área / corredor</th>
+          <th>Latitud</th>
+          <th>Longitud</th>
+          <th>Actualización</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (note of filtered(); track note.id) {
+          <tr>
+            <td>
+              <strong>{{ note.title || 'Incidencia sin identificar' }}</strong
+              ><small>{{ note.content }}</small>
+            </td>
+            <td>
+              <a routerLink="/incidencias" [queryParams]="{ note: note.id }"
+                >{{ noteProgress(note) }} →</a
+              >
+            </td>
+            <td>
+              <span class="state">{{ note.state || 'Sin área' }}</span>
+            </td>
+            <td>{{ note.altitude ?? '—' }}</td>
+            <td>{{ note.longitude ?? '—' }}</td>
+            <td>{{ note.updatedAt | date: 'dd/MM/y HH:mm' }}</td>
+            <td>
+              <a [routerLink]="['/mapa']" [queryParams]="{ note: note.id }" title="Ver en mapa"
+                >⌖</a
+              >
+            </td>
+          </tr>
+        } @empty {
+          @if (!loading()) {
+            <tr>
+              <td colspan="7" class="empty">Aún no hay registros guardados.</td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
