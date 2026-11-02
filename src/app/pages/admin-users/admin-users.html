@@ -1,0 +1,207 @@
+<main class="admin-users-page">
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">ADMINISTRACIÓN</span>
+        <h1>{{ createMode ? 'Crear usuario' : 'Usuarios' }}</h1>
+      </div>
+      @if (!createMode) { <div class="total">{{ total() }} registros</div> }
+    </div>
+
+    @if (!canManageUsers()) {
+      <div class="state muted" role="alert">
+        No tienes permisos para gestionar usuarios.
+      </div>
+    } @else {
+      @if (rolesError()) {
+        <div class="state error" role="alert" data-role-error>{{ rolesError() }} <button type="button" (click)="loadRoles()">Reintentar</button></div>
+      }
+      @if (!createMode) {
+      <div class="toolbar">
+        <form class="filters" [formGroup]="filters" (ngSubmit)="submitFilters()">
+          <label class="field">
+            <span>Buscar</span>
+            <input formControlName="search" placeholder="Usuario o nombre" />
+          </label>
+          <label class="field">
+            <span>Rol</span>
+            <select formControlName="role">
+              <option value="">Todos</option>
+              @for (role of roles(); track role.code) {
+                <option [value]="role.code">{{ role.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span>Estado</span>
+            <select formControlName="status">
+              <option value="">Todos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Aplicar</button>
+        </form>
+      </div>
+
+      }
+      <div class="composer">
+        <label class="field">
+          <span>Contraseña de administrador para confirmar la siguiente operación</span>
+          <input type="password" [formControl]="adminPassword" autocomplete="current-password" />
+        </label>
+        <p>Se solicitará de nuevo para cada cambio.</p>
+        @if (createMode) {
+        <h2>Datos del usuario</h2>
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="create-form">
+          <fieldset [disabled]="!!pendingCreation() || submitting()">
+          <label class="field">
+            <span>Usuario</span>
+            <input formControlName="username" placeholder="usuario" />
+          </label>
+          <label class="field">
+            <span>Nombre visible</span>
+            <input formControlName="displayName" placeholder="Nombre completo" />
+          </label>
+          <label class="field">
+            <span>Rol</span>
+            <select formControlName="role">
+              <option value="">Selecciona un rol</option>
+              @for (role of roles(); track role.code) {
+                <option [value]="role.code">{{ role.label }}</option>
+              }
+            </select>
+          </label>
+          </fieldset>
+          <button class="primary" type="submit" [disabled]="submitting() || !!temporaryPassword() || !!rolesError()">
+            {{ submitting() ? 'Creando…' : 'Crear usuario' }}
+          </button>
+        </form>
+        @if (pendingCreation() && !temporaryPassword()) {
+          <p>La creación sigue pendiente. Reintenta con los mismos datos o cancela para iniciar otra.</p>
+          <button type="button" [disabled]="submitting()" (click)="cancelCreation()">Cancelar solicitud pendiente</button>
+        }
+        }
+      </div>
+
+      @if (error()) {
+        <div class="state error" role="alert">{{ error() }}</div>
+      }
+
+      @if (success()) {
+        <div class="state success" role="status">{{ success() }}</div>
+      }
+
+      <dialog #confirmDialog aria-labelledby="confirm-change-title" (cancel)="$event.preventDefault(); cancelChange()">
+        @if (pendingChange(); as change) {
+          <h2 id="confirm-change-title">Confirmar cambio</h2>
+          <p>
+            @if (change.role) {
+              Cambiar el rol de {{ change.user.displayName }} a {{ change.role }}.
+            } @else {
+              {{ change.status === 'active' ? 'Activar' : 'Desactivar' }} la cuenta de {{ change.user.displayName }}.
+            }
+          </p>
+          <div class="actions">
+            <button type="button" (click)="cancelChange()">Cancelar</button>
+            <button type="button" class="primary" (click)="confirmChange()">Confirmar cambio</button>
+          </div>
+        }
+      </dialog>
+
+      <dialog #resetDialog aria-labelledby="confirm-reset-title" (cancel)="$event.preventDefault(); cancelResetConfirmation()">
+        @if (resetConfirmation(); as user) {
+          <h2 id="confirm-reset-title">Restablecer contraseña</h2>
+          <p>Se invalidará la contraseña y las sesiones de {{ user.displayName }}. Se generará una contraseña temporal que deberá cambiar al iniciar sesión.</p>
+          <p>Confirma la operación con tu contraseña de administrador en el campo de la página.</p>
+          <div class="actions">
+            <button type="button" (click)="cancelResetConfirmation()">Cancelar</button>
+            <button type="button" class="primary" (click)="confirmReset()">Confirmar restablecimiento</button>
+          </div>
+        }
+      </dialog>
+
+      <dialog #passwordDialog aria-labelledby="temporary-password-title" (cancel)="$event.preventDefault()">
+        @if (temporaryPassword()) {
+          <h2 id="temporary-password-title">Contraseña temporal</h2>
+          <p>Guárdala ahora. No podrás consultarla de nuevo al cerrar este diálogo.</p>
+          <code>{{ temporaryPassword() }}</code>
+          @if (copyMessage()) { <p role="status">{{ copyMessage() }}</p> }
+          <div class="actions">
+            <button type="button" (click)="copyTemporaryPassword()">Copiar contraseña</button>
+            <button type="button" (click)="closePasswordDialog()">He guardado la contraseña</button>
+          </div>
+        }
+      </dialog>
+
+      @if (pendingReset(); as pending) {
+        <div class="state error" role="status">
+          La solicitud para {{ pending.user.username }} puede seguir pendiente. Confirma tu contraseña y reintenta con el mismo botón; también puedes revisar el listado e iniciar una nueva solicitud.
+          <button type="button" [disabled]="submitting()" (click)="discardPendingReset()">Revisar e iniciar nueva solicitud</button>
+        </div>
+      }
+
+      @if (!createMode) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Requiere cambio</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of users(); track user.id) {
+              <tr>
+                <td>
+                  <strong>{{ user.displayName }}</strong>
+                  <small>{{ user.username }}</small>
+                </td>
+                <td>
+                  <select [disabled]="submitting() || !!rolesError() || !hasRole(user.role)" (change)="selectRole(user, $event)" [attr.aria-label]="'Rol de ' + user.displayName">
+                    @if (!hasRole(user.role)) { <option [value]="user.role" [selected]="true">{{ user.role || 'Rol no disponible' }}</option> }
+                    @for (role of roles(); track role.code) {
+                      <option [value]="role.code" [selected]="role.code === user.role">{{ role.label }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <select [value]="user.isActive ? 'active' : 'inactive'" [disabled]="submitting()" (change)="selectStatus(user, $event)">
+                    <option value="active">Activo</option>
+                    <option value="inactive">Inactivo</option>
+                  </select>
+                </td>
+                <td>{{ user.mustChangePassword ? 'Sí' : 'No' }}</td>
+                <td>
+                  @if (canReset(user)) {
+                    <button class="ghost" type="button" [disabled]="submitting() || !!temporaryPassword()" (click)="requestReset(user)">
+                      {{ pendingReset()?.user?.id === user.id ? 'Reintentar restablecimiento' : 'Restablecer contraseña' }}
+                    </button>
+                  }
+                  <button class="ghost" type="button" [disabled]="submitting()" (click)="changeStatus(user, user.isActive ? 'inactive' : 'active')">
+                    {{ user.isActive ? 'Desactivar' : 'Activar' }}
+                  </button>
+                </td>
+              </tr>
+            }
+            @if (!users().length) {
+              <tr>
+                <td colspan="5" class="empty">Sin resultados</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button type="button" [disabled]="page() <= 1" (click)="previousPage()">Anterior</button>
+        <span>Página {{ page() }}</span>
+        <button type="button" [disabled]="(page() * pageSize()) >= total()" (click)="nextPage()">Siguiente</button>
+      </div>
+      }
+    }
+  </section>
+</main>

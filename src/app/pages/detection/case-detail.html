@@ -10,21 +10,15 @@
       </span>
       <h2>{{ record.title }}</h2>
       <p>
-        {{ record.municipality }}, {{ record.state }} <span>·</span> Responsable: {{ record.owner }}
+        {{ record.municipality }}, {{ label('mexicoStates', record.state) }} <span>·</span> Responsable: {{ record.owner }}
       </p>
     </div>
     <button type="button" class="secondary" (click)="export()">↓ Exportar expediente</button>
   </section>
   <div class="metadata">
     <span class="priority" [class]="'priority ' + record.priority"
-      >Prioridad {{ priorities[record.priority].toLowerCase() }}</span
-    ><span>{{
-      record.status === 'open'
-        ? 'Expediente abierto'
-        : record.status === 'discarded'
-          ? 'Cerrado · falso positivo'
-          : 'Cerrado con informe'
-    }}</span
+      >Prioridad {{ label('riskLevels', record.priority) }}</span
+    ><span>{{ label('workflowStatuses', record.status) }}</span
     ><span>⌖ {{ record.latitude | number: '1.4-5' }}, {{ record.longitude | number: '1.4-5' }}</span
     ><span>Creado {{ record.createdAt | date: 'dd/MM/yyyy' }}</span>
   </div>
@@ -47,6 +41,14 @@
   }
   @if (error() || store.storageError()) {
     <div class="error" role="alert">{{ error() || store.storageError() }}</div>
+  }
+  @if (catalogsLoading()) {
+    <div class="local-notice" role="status">Cargando catálogos de la etapa…</div>
+  } @else if (catalogsError()) {
+    <div class="error" role="alert">{{ catalogsError() }} <button type="button" class="secondary" (click)="loadCatalogs(selected(), true)">Reintentar</button></div>
+  }
+  @if (!catalogsLoading()) {
+    <button type="button" class="secondary" (click)="loadCatalogs(selected(), true)">Actualizar catálogos</button>
   }
   <div class="content">
     <div class="main-column">
@@ -83,10 +85,9 @@
             @case ('reconnaissance') {
               <label
                 >Dictamen técnico registrado<select formControlName="finding">
-                  <option value="pending">Pendiente de revisión</option>
-                  <option value="inconclusive">Inconcluso · requiere más evidencia</option>
-                  <option value="confirmed">Confirmado por el especialista</option>
-                  <option value="false-positive">Falso positivo documentado</option>
+                  @for (option of options('findings', form.controls.finding.value); track option.code) {
+                    <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+                  }
                 </select></label
               >
               <div class="context-note">
@@ -97,9 +98,9 @@
             @case ('surveillance') {
               <label
                 >Estado de la revisión del entorno<select formControlName="environment">
-                  <option value="pending">Pendiente de revisión</option>
-                  <option value="blocked">Bloqueada · requiere nueva evaluación</option>
-                  <option value="reviewed">Revisión documentada por el responsable</option>
+                  @for (option of options('environmentReviews', form.controls.environment.value); track option.code) {
+                    <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+                  }
                 </select></label
               >
               <div class="context-note">
@@ -145,7 +146,7 @@
               <span>{{
                 dirty() ? 'Cambios sin guardar' : 'Revisión sincronizada con el registro local'
               }}</span
-              ><button type="submit" class="secondary" [disabled]="form.invalid || !dirty()">
+              ><button type="submit" class="secondary" [disabled]="form.invalid || !dirty() || !catalogsReady()">
                 Guardar revisión
               </button>
             </div>
@@ -155,6 +156,8 @@
       <app-evidence-panel
         [evidence]="evidence()"
         [editable]="editable()"
+        [sensorOptions]="options('sensors', evidenceSensorCodes())"
+        [catalogReady]="catalogsReady()"
         (added)="addEvidence($event)"
       />
       @if (editable()) {
@@ -183,7 +186,7 @@
           <button
             type="button"
             class="primary"
-            [disabled]="issues().length > 0 || dirty()"
+            [disabled]="issues().length > 0 || dirty() || !catalogsReady()"
             (click)="advance()"
           >
             {{
@@ -204,7 +207,7 @@
       }
     </div>
     <aside>
-      <app-terrain-context [soil]="record.soil" [season]="record.season" />
+      <app-terrain-context [soil]="record.soil" [season]="record.season" [soilLabel]="label('soils', record.soil)" [seasonLabel]="label('seasons', record.season)" />
       <section class="panel initial">
         <span class="eyebrow">OBSERVACIÓN INICIAL</span>
         <p>{{ record.description }}</p>

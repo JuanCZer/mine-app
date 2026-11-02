@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, effect, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Evidence, Sensor, SENSORS } from '../../core/models/detection.model';
+import { CatalogItem } from '../../core/models/catalog.model';
+import { Evidence, Sensor } from '../../core/models/detection.model';
 
 @Component({
   selector: 'app-evidence-panel',
@@ -19,7 +20,7 @@ import { Evidence, Sensor, SENSORS } from '../../core/models/detection.model';
       </p>
       @for (entry of evidence(); track entry.id) {
         <article>
-          <span class="sensor">{{ entry.sensor }}</span>
+          <span class="sensor">{{ sensorLabel(entry.sensor) }}</span>
           <div>
             <strong>{{ entry.reference }}</strong>
             <p>{{ entry.summary }}</p>
@@ -46,8 +47,9 @@ import { Evidence, Sensor, SENSORS } from '../../core/models/detection.model';
           <div class="fields">
             <label
               >Fuente<select formControlName="sensor">
-                @for (sensor of allowedSensors(); track sensor) {
-                  <option [value]="sensor">{{ sensor }}</option>
+                <option value="">Selecciona una fuente</option>
+                @for (sensor of selectableSensors(); track sensor.code) {
+                  <option [value]="sensor.code" [disabled]="!sensor.active">{{ sensor.label }}{{ sensor.active ? '' : ' (inactivo)' }}</option>
                 }
               </select></label
             >
@@ -66,7 +68,7 @@ import { Evidence, Sensor, SENSORS } from '../../core/models/detection.model';
               placeholder="Qué aporta esta evidencia y cuáles son sus limitaciones"
             ></textarea>
           </label>
-          <button type="submit" [disabled]="form.invalid">
+          <button type="submit" [disabled]="form.invalid || !catalogReady()">
             {{ draftMode() ? '＋ Agregar evidencia al borrador' : '＋ Registrar evidencia' }}
           </button>
         </form>
@@ -208,7 +210,7 @@ import { Evidence, Sensor, SENSORS } from '../../core/models/detection.model';
 })
 export class EvidencePanel {
   readonly evidence = input<
-    (Pick<Evidence, 'id' | 'sensor' | 'reference' | 'summary'> & { recordedAt?: string })[]
+    (Pick<Evidence, 'id' | 'sensor' | 'reference' | 'summary'> & { recordedAt?: string | null })[]
   >([]);
   readonly editable = input(false);
   readonly allowRemove = input(false);
@@ -216,9 +218,19 @@ export class EvidencePanel {
   readonly removed = output<string>();
   readonly draftChange = output<boolean>();
   readonly added = output<Pick<Evidence, 'sensor' | 'reference' | 'summary'>>();
-  readonly allowedSensors = input<readonly Sensor[]>(SENSORS);
+  readonly sensorOptions = input<readonly CatalogItem[]>([]);
+  readonly catalogReady = input(true);
+  readonly selectableSensors = computed(() => {
+    const current = this.form.controls.sensor.value;
+    const seen = new Set<string>();
+    return this.sensorOptions().filter((item) => {
+      if (seen.has(item.code)) return false;
+      seen.add(item.code);
+      return item.active || item.code === current;
+    });
+  });
   readonly form = new FormGroup({
-    sensor: new FormControl<Sensor>('LiDAR', { nonNullable: true }),
+    sensor: new FormControl<Sensor>('', { nonNullable: true, validators: Validators.required }),
     reference: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(300)],
@@ -236,16 +248,15 @@ export class EvidencePanel {
           !!(this.form.controls.reference.value || this.form.controls.summary.value),
         ),
       );
-    effect(() => {
-      const sensors = this.allowedSensors();
-      if (sensors.length && !sensors.includes(this.form.controls.sensor.value))
-        this.form.controls.sensor.setValue(sensors[0], { emitEvent: false });
-    });
   }
   submit() {
-    if (this.form.valid) this.added.emit(this.form.getRawValue());
+    if (this.form.valid && this.catalogReady()) this.added.emit(this.form.getRawValue());
   }
   reset() {
-    this.form.reset({ sensor: this.allowedSensors()[0] ?? 'LiDAR', reference: '', summary: '' });
+    this.form.reset({ sensor: '', reference: '', summary: '' });
+  }
+  sensorLabel(code: string) {
+    const item = this.sensorOptions().find((option) => option.code === code);
+    return item ? `${item.label}${item.active ? '' : ' (inactivo)'}` : code;
   }
 }

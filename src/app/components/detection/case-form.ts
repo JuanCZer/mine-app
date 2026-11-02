@@ -1,7 +1,9 @@
-import { Component, output } from '@angular/core';
+import { Component, OnInit, inject, output, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MEXICO_STATES } from '../../core/config/mexico-states';
+import { firstValueFrom } from 'rxjs';
+import { CatalogItem, CatalogKey } from '../../core/models/catalog.model';
 import { CaseInput, Priority, Season, Soil } from '../../core/models/detection.model';
+import { CatalogsService } from '../../core/services/catalogs.service';
 
 const requiredText = [Validators.required, Validators.pattern(/\S/)];
 
@@ -23,10 +25,10 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
       /></label>
       <div class="row">
         <label
-          >Estado<select formControlName="state">
+          >Estado<select formControlName="state" [disabled]="catalogLoading()">
             <option value="">Selecciona un estado</option>
-            @for (state of states; track state) {
-              <option [value]="state">{{ state }}</option>
+            @for (state of options('mexicoStates', form.controls.state.value); track state.code) {
+              <option [value]="state.code" [disabled]="!state.active">{{ state.label }}{{ state.active ? '' : ' (inactivo)' }}</option>
             }
           </select></label
         >
@@ -60,26 +62,28 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
       <div class="row">
         <label
           >Tipo de suelo<select formControlName="soil">
-            <option value="unknown">Sin determinar</option>
-            <option value="vertisol">Vertisol</option>
-            <option value="andosol">Andosol / Luvisol</option>
-            <option value="leptosol">Leptosol</option>
+            <option value="">Selecciona un tipo</option>
+            @for (option of options('soils', form.controls.soil.value); track option.code) {
+              <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+            }
           </select></label
         >
         <label
           >Temporada<select formControlName="season">
-            <option value="unknown">Sin determinar</option>
-            <option value="dry">Seca</option>
-            <option value="rainy">Lluvias</option>
+            <option value="">Selecciona una temporada</option>
+            @for (option of options('seasons', form.controls.season.value); track option.code) {
+              <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+            }
           </select></label
         >
       </div>
       <div class="row">
         <label
           >Prioridad declarada<select formControlName="priority">
-            <option value="medium">Media</option>
-            <option value="high">Alta</option>
-            <option value="low">Baja</option>
+            <option value="">Selecciona una prioridad</option>
+            @for (option of options('riskLevels', form.controls.priority.value); track option.code) {
+              <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+            }
           </select></label
         >
         <label
@@ -97,6 +101,13 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
           placeholder="Describe lo observado, su origen y el contexto del hallazgo"
         ></textarea>
       </label>
+      @if (catalogLoading()) {
+        <p class="catalog-state" role="status">Cargando catálogos…</p>
+      } @else if (catalogError()) {
+        <p class="error" role="alert">{{ catalogError() }} <button type="button" class="retry" (click)="loadCatalogs(true)">Reintentar</button></p>
+      } @else if (!catalogReady()) {
+        <p class="error" role="alert">Los catálogos requeridos no tienen opciones activas.</p>
+      }
       @if (attempted && form.invalid) {
         <p class="error" role="alert">
           Completa los campos obligatorios y usa coordenadas dentro del rango indicado.
@@ -104,7 +115,7 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
       }
       <div class="actions">
         <button class="secondary" type="button" (click)="cancelled.emit()">Cancelar</button
-        ><button class="primary" type="submit">Crear expediente <span>→</span></button>
+        ><button class="primary" type="submit" [disabled]="!catalogReady()">Crear expediente <span>→</span></button>
       </div>
     </form>
   `,
@@ -180,10 +191,11 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
       background: #fff;
       border: 1px solid #dae0d3;
     }
-    .error {
+    .error, .catalog-state {
       color: #a04130;
       font-size: 12px;
     }
+    .retry { padding: 3px 8px; margin-left: 8px; }
     @media (max-width: 480px) {
       form {
         padding: 20px;
@@ -206,8 +218,13 @@ const requiredText = [Validators.required, Validators.pattern(/\S/)];
     .error { color: #ffc0c0; }
   `,
 })
-export class CaseForm {
-  readonly states = MEXICO_STATES;
+export class CaseForm implements OnInit {
+  private readonly catalogsService = inject(CatalogsService);
+  private readonly keys: readonly CatalogKey[] = ['mexicoStates', 'soils', 'seasons', 'riskLevels'];
+  readonly catalogs = signal<Partial<Record<CatalogKey, CatalogItem[]>>>({});
+  readonly catalogLoading = signal(true);
+  readonly catalogError = signal('');
+  readonly catalogReady = signal(false);
   readonly saved = output<CaseInput>();
   readonly cancelled = output<void>();
   attempted = false;
@@ -231,9 +248,9 @@ export class CaseForm {
       Validators.min(-180),
       Validators.max(180),
     ]),
-    soil: new FormControl<Soil>('unknown', { nonNullable: true }),
-    season: new FormControl<Season>('unknown', { nonNullable: true }),
-    priority: new FormControl<Priority>('medium', { nonNullable: true }),
+    soil: new FormControl<Soil>('', { nonNullable: true, validators: Validators.required }),
+    season: new FormControl<Season>('', { nonNullable: true, validators: Validators.required }),
+    priority: new FormControl<Priority>('', { nonNullable: true, validators: Validators.required }),
     owner: new FormControl('', {
       nonNullable: true,
       validators: [...requiredText, Validators.maxLength(100)],
@@ -243,9 +260,33 @@ export class CaseForm {
       validators: [...requiredText, Validators.maxLength(3000)],
     }),
   });
+  ngOnInit() {
+    void this.loadCatalogs();
+  }
+  async loadCatalogs(reload = false) {
+    this.catalogLoading.set(true);
+    this.catalogError.set('');
+    try {
+      const response = await firstValueFrom(
+        reload
+          ? this.catalogsService.reload(this.keys, { stage: 'indications', includeInactive: true })
+          : this.catalogsService.load(this.keys, { stage: 'indications', includeInactive: true }),
+      );
+      this.catalogs.set(response.catalogs);
+      this.catalogReady.set(this.keys.every((key) => (response.catalogs[key] ?? []).some((item) => item.active)));
+    } catch {
+      this.catalogReady.set(false);
+      this.catalogError.set('No fue posible cargar los catálogos requeridos.');
+    } finally {
+      this.catalogLoading.set(false);
+    }
+  }
+  options(key: CatalogKey, selected: string): CatalogItem[] {
+    return this.catalogsService.selectable(this.catalogs()[key] ?? [], selected);
+  }
   submit() {
     this.attempted = true;
-    if (this.form.invalid) {
+    if (this.form.invalid || !this.catalogReady()) {
       this.form.markAllAsTouched();
       return;
     }

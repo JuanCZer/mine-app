@@ -67,7 +67,8 @@
               "buildTarget": "mine-app:build:production"
             },
             "development": {
-              "buildTarget": "mine-app:build:development"
+              "buildTarget": "mine-app:build:development",
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"

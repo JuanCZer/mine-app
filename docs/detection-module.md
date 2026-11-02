@@ -1,58 +1,42 @@
-# Seguimiento de detección basado en el documento GDS
+# Retiro seguro del panel local de detección
 
-Este documento describe el panel de registros locales `/deteccion`. El flujo principal con validaciones obligatorias ahora está integrado en [Notas](note-phases.md), en `/notas`, y se guarda en la API.
+El flujo operativo es `/incidencias`: usa la API autenticada, PostgreSQL y `owner_user_id` para aislar los registros de cada cuenta. Las rutas anteriores `/deteccion` y `/deteccion/:id` redirigen a ese flujo.
 
-Referencia de requisitos: **GDS SEDENA INTEGRACION .pdf**, 38 páginas, facilitado por el usuario. Las afirmaciones técnicas del documento se muestran como contexto atribuido al PDF; no se han validado capacidades de equipos ni estadísticas externas.
+El panel local se retiró porque guardaba todos los expedientes del origen en una sola clave `localStorage`, `gds-detection-cases-v1`. Esa clave no contiene un UUID de usuario autenticado. Después de cerrar la sesión de una cuenta, otra cuenta que usara el mismo perfil de navegador podía consultar y modificar sus expedientes. Agregar el nombre del usuario a la clave no habría creado una frontera de autorización.
 
-## Componentes y correspondencia con el documento
+## Conservación de los datos anteriores
 
-| Componente          | Función                                                                               | Páginas                                      |
-| ------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `DetectionPage`     | Bandeja de expedientes, filtros, prioridades y exportación                            | 6, 13, 32                                    |
-| `DetectionOverview` | Indicadores globales y resumen de las cuatro capas                                    | 6, 13, 32                                    |
-| `CaseForm`          | Registro de anomalía con latitud, longitud, responsable, suelo y temporada            | 7–10, 32–35                                  |
-| `LayerPipeline`     | Secuencia I&W → reconocimiento → vigilancia → mitigación                              | 6–26                                         |
-| `CaseDetailPage`    | Revisión por etapa, referencias de levantamientos, dictamen y cierre                  | 10–19, 26                                    |
-| `EvidencePanel`     | Referencias a evidencias LiDAR, RGB, IR, GPR, magnetometría, observaciones e informes | 9–17, 26                                     |
-| `TerrainContext`    | Contexto de Vertisol, Andosol/Luvisol y Leptosol; limitaciones y falsos positivos     | 32–35                                        |
-| `CaseMap`           | Ubicaciones con prioridad declarada y acceso al expediente; exportación GIS           | 13–14                                        |
-| `CaseTimeline`      | Historial de creación, revisiones, evidencias y entregas                              | Trazabilidad añadida como decisión de diseño |
+El bundle nuevo no lee, reescribe ni borra la clave retirada. El cierre de sesión tampoco la elimina. Esto conserva el archivo original para una exportación y conciliación controladas, pero esos datos ya no se muestran ni se pueden modificar desde la interfaz multiusuario. El blob sigue siendo material sensible en el perfil hasta que un custodio verifique su exportación y conciliación o apruebe y verifique su eliminación. Antes de permitir un cambio de cuenta también deben cerrarse o inutilizarse todas las pestañas que conservaron el bundle anterior, siguiendo la barrera del [runbook de corte](runbooks/postgresql-cutover.md#barrera-obligatoria-para-retirar-el-bundle-local).
 
-El PDF numera mitigación como capa 2 y vigilancia como capa 3, pero en la página 26 especifica que **la vigilancia precede a la mitigación**. Se conservan sus números y se aplica la secuencia 0 → 1 → 3 → 2.
+Antes de desplegar esta versión, el custodio debe exportar cada perfil autorizado desde la versión anterior con el botón JSON. Si la versión nueva ya fue desplegada, un custodio con acceso al perfil original puede recuperar la copia exacta desde las herramientas del navegador, en el origen de la aplicación:
 
-## Reglas de avance
+```js
+const key = 'gds-detection-cases-v1';
+const raw = localStorage.getItem(key);
+if (!raw) throw new Error('No existe un archivo local de detección en este perfil.');
+const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+const link = Object.assign(document.createElement('a'), {
+  href: url,
+  download: 'gds-detection-cases-v1.json',
+});
+link.click();
+setTimeout(() => URL.revokeObjectURL(url), 1000);
+```
 
-Cada etapa requiere una referencia de evidencia, revisor declarado y fundamento guardados. Los borradores se pueden guardar incompletos. No se permiten saltos de etapa ni editar etapas ya completadas.
+Guardar el archivo en almacenamiento protegido y registrar su SHA-256. No copiar cookies, tokens u otros valores del almacenamiento del navegador. La eliminación de la clave requiere una acción posterior, explícita y aprobada por el custodio una vez conciliada la fuente.
 
-- I&W: referencias al levantamiento base y al levantamiento comparativo.
-- Reconocimiento: dictamen concluyente y evidencias de dos fuentes distintas entre RGB, IR, GPR y magnetometría. Exigir dos fuentes es una **decisión de diseño** para reflejar la correlación multisensorial del PDF; no constituye una regla técnica validada de detección. Un dictamen inconcluso permanece en esta etapa. Un falso positivo documentado cierra el expediente sin pasar a mitigación.
-- Vigilancia: revisión del entorno documentada. Una revisión pendiente o bloqueada impide avanzar.
-- Mitigación: referencias del informe especializado y de retroalimentación TECHINT. El módulo registra el cierre administrativo, sin instrucciones ni acciones de neutralización.
+## Análisis y conciliación
 
-Los dictámenes, prioridades y responsables los captura el usuario. No se deducen amenazas por umbrales, no se calculan probabilidades con datos ficticios y ninguna transición certifica una zona segura.
+`LegacyDetectionImporter` acepta tanto el sobre generado por el exportador (`schemaVersion: 1`) como la copia exacta de `localStorage` (`version: 1`), ambos con `cases`. También conserva un arreglo JSON heredado. El analizador valida el campo real `latitude`, conserva el JSON original y no convierte `stage`, revisiones o historial locales en validaciones autenticadas.
 
-## Uso
+Cada valor `owner` es texto declarado y debe relacionarse de forma explícita con un UUID de Identity mediante el mapa de propietarios. Un valor ambiguo queda en cuarentena. La conciliación y las limitaciones del adaptador PostgreSQL se describen en [Corte de incidencias JSON a PostgreSQL](runbooks/postgresql-cutover.md).
 
-1. Ejecutar `npm start` y entrar a `/deteccion`, disponible como «Panel de registros locales» en el menú.
-2. Crear un expediente; opcionalmente usar el botón de ejemplo ficticio cuando la bandeja esté vacía.
-3. Completar la revisión de la etapa y guardar. Registrar referencias de evidencias por separado.
-4. Completar la etapa cuando la lista de pendientes esté vacía. El servicio vuelve a verificar las reglas.
-5. Consultar etapas previas, bitácora y contexto del terreno. Exportar el expediente completo en JSON o las ubicaciones de la lista filtrada en GeoJSON.
+## Verificación
 
-Los indicadores globales incluyen todos los expedientes locales, también los ejemplos señalados. El porcentaje de falsos positivos usa como denominador los dictámenes concluyentes de reconocimiento; muestra `—` cuando todavía no existen.
+```bash
+npm test -- --watch=false
+npm run build
+python3 -m unittest backend-tests/test_legacy_import.py -v
+```
 
-## Persistencia e integraciones
-
-Esta entrega implementa los componentes y el flujo de revisión en Angular. Persiste en `localStorage`, clave `gds-detection-cases-v1`. Guardar revisiones y avanzar genera entradas de bitácora. Los fallos de lectura bloquean la sobrescritura; los fallos de escritura no se presentan como guardados. Se detectan modificaciones de otras pestañas antes de guardar, aunque localStorage no ofrece transacciones entre pestañas.
-
-No incluye backend de expedientes, acceso multiusuario, sincronización entre dispositivos, firma del revisor, autorización por roles o auditoría inmutable. El login preexistente del proyecto sigue desactivado. El historial local no sustituye una auditoría de servidor. La paginación es de presentación, no paginación de servidor.
-
-Las evidencias son **referencias**, no archivos cargados. No hay adquisición ni procesamiento de nubes LiDAR, telemetría, video, fusión de sensores, IA o actualización real de un catálogo TECHINT. El mapa usa la configuración Mapbox existente y necesita conectividad y un token válido; la tabla y las coordenadas permanecen disponibles si el mapa falla.
-
-La vigilancia se representa mediante revisión documental del entorno. No se implementan captura de identificadores de telefonía, seguimiento de individuos, interferencia de señal ni control de hardware.
-
-Para conectar datos reales se necesitan contratos y credenciales de las APIs de sensores, almacenamiento de evidencias, backend de expedientes con validación de transiciones, autenticación y permisos, y los requisitos de volumen, disponibilidad y retención. El PDF no especifica estos contratos ni una demanda de usuarios concurrentes; no se atribuye capacidad de producción a esta interfaz local.
-
-## Validación
-
-`npm run build` compila la aplicación de producción. `npm test -- --watch=false` ejecuta las pruebas de creación, persistencia, validación del flujo, bloqueos de revisión y manejo de falsos positivos.
+Las pruebas comprueban que el servicio retirado no lee ni modifica el archivo, que el logout lo conserva, que las rutas ya no cargan el panel y que ambos sobres versionados pueden analizarse sin perder los registros originales.

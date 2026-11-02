@@ -11,7 +11,9 @@ import {
 } from '@angular/core';
 import mapboxgl from 'mapbox-gl';
 import { MAPBOX_TOKEN } from '../../core/config/mapbox.config';
-import { DetectionCase, PRIORITY_LABELS, stageLabel } from '../../core/models/detection.model';
+import { CatalogItem } from '../../core/models/catalog.model';
+import { DetectionCase } from '../../core/models/detection.model';
+import { observeMapResize } from '../../shared/map-resize';
 
 @Component({
   selector: 'app-case-map',
@@ -36,9 +38,10 @@ import { DetectionCase, PRIORITY_LABELS, stageLabel } from '../../core/models/de
         </p>
       }
       <div class="legend">
-        <span><i class="high"></i> Alta</span><span><i class="medium"></i> Media</span
-        ><span><i class="low"></i> Baja</span
-        ><small>Prioridad declarada · no representa áreas certificadas</small>
+        @for (option of riskOptions(); track option.code) {
+          @if (option.active) {<span><i [class]="option.code"></i> {{ option.label }}</span>}
+        }
+        <small>Prioridad declarada · no representa áreas certificadas</small>
       </div>
     </section>
   `,
@@ -91,6 +94,7 @@ import { DetectionCase, PRIORITY_LABELS, stageLabel } from '../../core/models/de
       height: 7px;
       border-radius: 50%;
       margin-right: 5px;
+      background: var(--accent);
     }
     .high {
       background: #b35843;
@@ -113,13 +117,18 @@ import { DetectionCase, PRIORITY_LABELS, stageLabel } from '../../core/models/de
 export class CaseMap implements AfterViewInit, OnDestroy {
   @ViewChild('mapContainer') container!: ElementRef<HTMLElement>;
   readonly cases = input<DetectionCase[]>([]);
+  readonly riskOptions = input<readonly CatalogItem[]>([]);
+  readonly stageOptions = input<readonly CatalogItem[]>([]);
   readonly opened = output<string>();
   readonly error = signal('');
   private map?: mapboxgl.Map;
   private markers: mapboxgl.Marker[] = [];
+  private stopResizeObservation?: () => void;
   constructor() {
     effect(() => {
       const items = this.cases();
+      this.riskOptions();
+      this.stageOptions();
       if (this.map?.isStyleLoaded()) this.draw(items);
     });
   }
@@ -134,6 +143,9 @@ export class CaseMap implements AfterViewInit, OnDestroy {
         zoom: 4,
         attributionControl: true,
       });
+      this.stopResizeObservation = observeMapResize(this.container.nativeElement, () =>
+        this.map?.resize(),
+      );
       this.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
       this.map.on('load', () => {
         this.error.set('');
@@ -149,6 +161,7 @@ export class CaseMap implements AfterViewInit, OnDestroy {
     }
   }
   ngOnDestroy() {
+    this.stopResizeObservation?.();
     this.markers.forEach((marker) => marker.remove());
     this.map?.remove();
   }
@@ -162,13 +175,13 @@ export class CaseMap implements AfterViewInit, OnDestroy {
       const title = document.createElement('strong');
       title.textContent = item.title;
       const info = document.createElement('p');
-      info.textContent = `${stageLabel(item.stage)} · Prioridad ${PRIORITY_LABELS[item.priority].toLowerCase()}`;
+      info.textContent = `${this.label(this.stageOptions(), item.stage)} · Prioridad ${this.label(this.riskOptions(), item.priority)}`;
       const link = document.createElement('button');
       link.type = 'button';
       link.textContent = 'Abrir expediente →';
       link.addEventListener('click', () => this.opened.emit(item.id));
       popupContent.append(title, info, link);
-      const color = { high: '#f07878', medium: '#f0bb62', low: '#58c48d' }[item.priority];
+      const color = ({ high: '#f07878', medium: '#f0bb62', low: '#58c48d' } as Record<string, string>)[item.priority] ?? '#79d3f5';
       const marker = new mapboxgl.Marker({ color })
         .setLngLat([item.longitude, item.latitude])
         .setPopup(new mapboxgl.Popup({ offset: 20 }).setDOMContent(popupContent))
@@ -177,5 +190,8 @@ export class CaseMap implements AfterViewInit, OnDestroy {
       bounds.extend([item.longitude, item.latitude]);
     }
     if (items.length) this.map.fitBounds(bounds, { padding: 60, maxZoom: 11, duration: 0 });
+  }
+  private label(options: readonly CatalogItem[], code: string) {
+    return options.find((option) => option.code === code)?.label ?? code;
   }
 }

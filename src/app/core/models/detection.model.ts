@@ -1,20 +1,9 @@
 export type DetectionStage = 'indications' | 'reconnaissance' | 'surveillance' | 'mitigation';
 export type CaseStatus = 'open' | 'closed' | 'discarded';
-export type Priority = 'high' | 'medium' | 'low';
-export type Soil = 'vertisol' | 'andosol' | 'leptosol' | 'unknown';
-export type Season = 'dry' | 'rainy' | 'unknown';
-export type Sensor =
-  | 'LiDAR'
-  | 'RGB'
-  | 'IR'
-  | 'GPR'
-  | 'Magnetometría'
-  | 'EO/IR'
-  | 'IMSI/IMEI/TMSI'
-  | 'EOD'
-  | 'TECHINT'
-  | 'Observación'
-  | 'Informe';
+export type Priority = string;
+export type Soil = string;
+export type Season = string;
+export type Sensor = string;
 
 export interface LayerDefinition {
   id: DetectionStage;
@@ -70,36 +59,6 @@ export const DETECTION_LAYERS: readonly LayerDefinition[] = [
   },
 ];
 
-export const PRIORITY_LABELS: Record<Priority, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
-};
-export const SOIL_LABELS: Record<Soil, string> = {
-  vertisol: 'Vertisol',
-  andosol: 'Andosol / Luvisol',
-  leptosol: 'Leptosol',
-  unknown: 'Sin determinar',
-};
-export const SEASON_LABELS: Record<Season, string> = {
-  dry: 'Seca',
-  rainy: 'Lluvias',
-  unknown: 'Sin determinar',
-};
-export const SENSORS: readonly Sensor[] = [
-  'LiDAR',
-  'RGB',
-  'IR',
-  'GPR',
-  'Magnetometría',
-  'EO/IR',
-  'IMSI/IMEI/TMSI',
-  'EOD',
-  'TECHINT',
-  'Observación',
-  'Informe',
-];
-
 export interface CaseInput {
   title: string;
   state: string;
@@ -116,8 +75,8 @@ export interface CaseInput {
 export interface StageReview {
   baseline: string;
   comparison: string;
-  finding: 'pending' | 'confirmed' | 'inconclusive' | 'false-positive';
-  environment: 'pending' | 'blocked' | 'reviewed';
+  finding: string;
+  environment: string;
   report: string;
   techint: string;
   reviewer: string;

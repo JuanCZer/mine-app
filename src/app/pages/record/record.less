@@ -1,1 +1,185 @@
-:host { display: block; max-width: 1220px; margin: auto; color: var(--text); }.intro { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 30px; }.intro span { color: var(--accent-hover); font-size: 10px; font-weight: 700; letter-spacing: .14em; }.intro h2 { margin: 8px 0; font-size: clamp(28px, 3vw, 38px); font-weight: 680; letter-spacing: -.035em; }.intro p { margin: 0; color: var(--text-secondary); font-size: 14px; }.intro a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 16px; border: 1px solid rgb(121 211 245 / .66); border-radius: var(--radius-sm); background: linear-gradient(135deg, #76cbef, #469dc8); color: var(--accent-ink); font-size: 13px; font-weight: 720; text-decoration: none; }.records { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-lg); }.records > header { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 19px 22px; border-bottom: 1px solid var(--line); }.records header label { display: flex; width: min(390px, 70%); align-items: center; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-input); color: var(--text-muted); }.records header input { width: 100%; min-height: 40px; padding: 9px 8px; border: 0; outline: 0; background: none; color: var(--text); font-size: 13px; }.records header > strong { color: var(--text-muted); font-size: 10px; letter-spacing: .1em; }.table-wrap { overflow-x: auto; } table { width: 100%; min-width: 800px; border-collapse: collapse; } th { padding: 14px 20px; border-bottom: 1px solid var(--line); background: rgb(7 17 31 / .62); color: var(--text-muted); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-align: left; } td { padding: 17px 20px; border-top: 1px solid rgb(41 69 93 / .72); color: var(--text-secondary); font-size: 12px; } tbody tr:hover { background: rgb(23 49 73 / .46); } td:first-child { max-width: 300px; } td strong, td small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } td strong { color: var(--text); font-size: 14px; font-weight: 650; } td small { margin-top: 5px; color: var(--text-muted); font-size: 10px; }.state { padding: 5px 9px; border: 1px solid rgb(88 196 141 / .38); border-radius: 999px; background: var(--success-soft); color: #a8e8c3; font-size: 10px; } td a { color: var(--accent-hover); font-size: 13px; text-decoration: none; } td a:hover { color: #fff; text-decoration: underline; }.empty { padding: 70px; color: var(--text-muted); text-align: center; } @media(max-width:650px){.intro{align-items:stretch;flex-direction:column}.intro p{display:none}.intro h2{font-size:27px}.intro a{justify-content:center}.records > header{padding:16px}.records header > strong{display:none}.records header label{width:100%}}
+:host {
+  display: block;
+  max-width: 1220px;
+  margin: auto;
+  color: var(--text);
+}
+.intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 30px;
+}
+.intro span {
+  color: var(--accent-hover);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.intro h2 {
+  margin: 8px 0;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 680;
+  letter-spacing: -0.035em;
+}
+.intro p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.intro a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 16px;
+  border: 1px solid rgb(121 211 245 / 0.66);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #76cbef, #469dc8);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 720;
+  text-decoration: none;
+}
+.records {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.records > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 19px 22px;
+  border-bottom: 1px solid var(--line);
+}
+.records header label {
+  display: flex;
+  width: min(390px, 70%);
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-input);
+  color: var(--text-muted);
+}
+.records header input {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 8px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+}
+.records header > strong {
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+table {
+  width: 100%;
+  min-width: 1040px;
+  border-collapse: collapse;
+}
+th {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgb(7 17 31 / 0.62);
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: left;
+}
+th,
+td {
+  white-space: nowrap;
+}
+td {
+  padding: 17px 20px;
+  border-top: 1px solid rgb(41 69 93 / 0.72);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+tbody tr:hover {
+  background: rgb(23 49 73 / 0.46);
+}
+td:first-child {
+  width: 300px;
+  max-width: 300px;
+}
+td strong,
+td small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+td strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+td small {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.state {
+  padding: 5px 9px;
+  border: 1px solid rgb(88 196 141 / 0.38);
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: #a8e8c3;
+  font-size: 10px;
+  white-space: nowrap;
+}
+td a {
+  color: var(--accent-hover);
+  font-size: 13px;
+  text-decoration: none;
+}
+td a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.empty {
+  padding: 70px;
+  color: var(--text-muted);
+  text-align: center;
+}
+@media (max-width: 650px) {
+  .intro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .intro p {
+    display: none;
+  }
+  .intro h2 {
+    font-size: 27px;
+  }
+  .intro a {
+    justify-content: center;
+  }
+  .records > header {
+    padding: 16px;
+  }
+  .records header > strong {
+    display: none;
+  }
+  .records header label {
+    width: 100%;
+  }
+}

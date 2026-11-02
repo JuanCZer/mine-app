@@ -1,13 +1,13 @@
 import { Component, input } from '@angular/core';
-import { Season, SEASON_LABELS, Soil, SOIL_LABELS } from '../../core/models/detection.model';
+import { Season, Soil } from '../../core/models/detection.model';
 
 @Component({
   selector: 'app-terrain-context',
   template: `
     <section aria-label="Contexto del terreno">
       <div class="caption">CONTEXTO DEL TERRENO <span>PDF · pp. 32–35</span></div>
-      <h3>{{ soilLabels[soil()] }}</h3>
-      <span class="season">Temporada: {{ seasonLabels[season()] }}</span>
+      <h3>{{ soilLabel() || soil() }}</h3>
+      <span class="season">Temporada: {{ seasonLabel() || season() }}</span>
       @switch (soil()) {
         @case ('vertisol') {
           <p>
@@ -106,6 +106,6 @@ import { Season, SEASON_LABELS, Soil, SOIL_LABELS } from '../../core/models/dete
 export class TerrainContext {
   readonly soil = input<Soil>('unknown');
   readonly season = input<Season>('unknown');
-  readonly soilLabels = SOIL_LABELS;
-  readonly seasonLabels = SEASON_LABELS;
+  readonly soilLabel = input('');
+  readonly seasonLabel = input('');
 }

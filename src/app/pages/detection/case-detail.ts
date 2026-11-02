@@ -3,6 +3,7 @@ import { Component, computed, effect, inject, signal, ViewChild } from '@angular
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { CaseTimeline } from '../../components/detection/case-timeline';
 import { EvidencePanel } from '../../components/detection/evidence-panel';
 import { LayerPipeline } from '../../components/detection/layer-pipeline';
@@ -11,10 +12,11 @@ import {
   DetectionStage,
   DETECTION_LAYERS,
   Evidence,
-  PRIORITY_LABELS,
   StageReview,
   transitionIssues,
 } from '../../core/models/detection.model';
+import { CatalogItem, CatalogKey } from '../../core/models/catalog.model';
+import { CatalogsService } from '../../core/services/catalogs.service';
 import { DetectionService } from '../../core/services/detection.service';
 import { downloadCases } from '../../core/services/detection-export';
 
@@ -35,6 +37,7 @@ import { downloadCases } from '../../core/services/detection-export';
 })
 export class CaseDetailPage {
   readonly store = inject(DetectionService);
+  private readonly catalogsService = inject(CatalogsService);
   private readonly params = toSignal(inject(ActivatedRoute).paramMap);
   @ViewChild(EvidencePanel) evidencePanel?: EvidencePanel;
   readonly item = computed(() =>
@@ -48,11 +51,35 @@ export class CaseDetailPage {
   readonly evidence = computed(
     () => this.item()?.evidence.filter((entry) => entry.stage === this.selected()) ?? [],
   );
+  readonly evidenceSensorCodes = computed(() => this.evidence().map((entry) => entry.sensor));
   readonly issues = computed(() => (this.item() ? transitionIssues(this.item()!) : []));
   readonly dirty = signal(false);
   readonly message = signal('');
   readonly error = signal('');
-  readonly priorities = PRIORITY_LABELS;
+  readonly catalogs = signal<Partial<Record<CatalogKey, CatalogItem[]>>>({});
+  readonly catalogsLoading = signal(true);
+  readonly catalogsError = signal('');
+  private catalogRequest = 0;
+  readonly catalogKeys = computed<readonly CatalogKey[]>(() => [
+    'riskLevels',
+    'workflowStatuses',
+    'mexicoStates',
+    'soils',
+    'seasons',
+    'sensors',
+    ...(this.selected() === 'reconnaissance' ? (['findings'] as CatalogKey[]) : []),
+    ...(this.selected() === 'surveillance' ? (['environmentReviews'] as CatalogKey[]) : []),
+  ]);
+  readonly catalogsReady = computed(
+    () =>
+      !this.catalogsLoading() &&
+      !this.catalogsError() &&
+      [
+        'sensors',
+        ...(this.selected() === 'reconnaissance' ? ['findings'] : []),
+        ...(this.selected() === 'surveillance' ? ['environmentReviews'] : []),
+      ].every((key) => this.catalogIsUsable(key as CatalogKey)),
+  );
   private loadedKey = '';
   private loadedId = '';
   readonly form = new FormGroup({
@@ -84,6 +111,52 @@ export class CaseDetailPage {
       else this.form.disable({ emitEvent: false });
       this.dirty.set(false);
     });
+    effect(() => {
+      const stage = this.selected();
+      this.catalogKeys();
+      void this.loadCatalogs(stage);
+    });
+  }
+
+  async loadCatalogs(stage = this.selected(), reload = false) {
+    const requestId = ++this.catalogRequest;
+    this.catalogsLoading.set(true);
+    this.catalogsError.set('');
+    const keys = this.catalogKeys();
+    try {
+      const response = await firstValueFrom(
+        reload
+          ? this.catalogsService.reload(keys, { stage, includeInactive: true })
+          : this.catalogsService.load(keys, { stage, includeInactive: true }),
+      );
+      if (requestId !== this.catalogRequest || stage !== this.selected()) return;
+      this.catalogs.set(response.catalogs);
+    } catch {
+      if (requestId !== this.catalogRequest) return;
+      this.catalogsError.set('No fue posible cargar los catálogos. El expediente y los cambios locales se conservan.');
+    } finally {
+      if (requestId === this.catalogRequest) this.catalogsLoading.set(false);
+    }
+  }
+  options(key: CatalogKey, selected: string | readonly string[] = []) {
+    return this.catalogsService.selectable(this.catalogs()[key] ?? [], selected);
+  }
+  label(key: CatalogKey, code: string) {
+    return this.catalogsService.label(this.catalogs()[key] ?? [], code, code);
+  }
+  private catalogIsUsable(key: CatalogKey): boolean {
+    const items = this.catalogs()[key] ?? [];
+    if (items.some((item) => item.active)) return true;
+    const selected =
+      key === 'sensors'
+        ? this.evidenceSensorCodes()
+        : key === 'findings'
+          ? [this.form.controls.finding.value]
+          : key === 'environmentReviews'
+            ? [this.form.controls.environment.value]
+            : [];
+    const codes = selected.filter(Boolean);
+    return codes.length > 0 && codes.every((code) => items.some((item) => item.code === code));
   }
 
   select(stage: DetectionStage) {
@@ -98,7 +171,7 @@ export class CaseDetailPage {
   }
   save() {
     const item = this.item();
-    if (!item || !this.editable() || this.form.invalid) return;
+    if (!item || !this.editable() || this.form.invalid || !this.catalogsReady()) return;
     this.perform(() => {
       this.store.saveReview(item.id, this.selected(), this.form.getRawValue());
       this.dirty.set(false);
@@ -106,7 +179,7 @@ export class CaseDetailPage {
   }
   addEvidence(input: Pick<Evidence, 'sensor' | 'reference' | 'summary'>) {
     const item = this.item();
-    if (!item) return;
+    if (!item || !this.catalogsReady()) return;
     this.perform(() => {
       this.store.addEvidence(item.id, { ...input, stage: this.selected() });
       this.evidencePanel?.reset();
@@ -114,7 +187,7 @@ export class CaseDetailPage {
   }
   advance() {
     const item = this.item();
-    if (!item || this.dirty()) return;
+    if (!item || this.dirty() || !this.catalogsReady()) return;
     this.perform(() => {
       this.store.advance(item.id);
       this.selected.set(this.item()!.stage);

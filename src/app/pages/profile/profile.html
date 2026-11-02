@@ -1,0 +1,41 @@
+<main class="profile-page">
+  <section class="panel profile-panel" aria-labelledby="profile-heading">
+    <div class="header">
+      <span class="eyebrow">CUENTA</span>
+      <h1 id="profile-heading">Perfil de usuario</h1>
+      <p>Revisa tus datos básicos y actualiza la contraseña de acceso cuando lo necesites.</p>
+    </div>
+
+    <div class="detail-grid">
+      <div class="info-card">
+        <h2>Información básica</h2>
+        <dl>
+          <div>
+            <dt>Nombre</dt>
+            <dd>{{ user()?.displayName || user()?.username || 'Sin nombre' }}</dd>
+          </div>
+          <div>
+            <dt>Alias</dt>
+            <dd>{{ user()?.username || 'Sin alias' }}</dd>
+          </div>
+          <div>
+            <dt>Rol</dt>
+            <dd>{{ roleLabel() }}</dd>
+          </div>
+          <div>
+            <dt>Fecha de creación</dt>
+            <dd>{{ createdAtLabel() }}</dd>
+          </div>
+        </dl>
+        @if (!user()?.role) {
+          <p role="status">Verifica la asignación de rol y la versión del backend con el administrador.</p>
+        }
+      </div>
+
+      <div class="security-card">
+        <app-change-password class="embedded" />
+        <p>¿Olvidaste tu contraseña? Solicita a un administrador que la restablezca.</p>
+      </div>
+    </div>
+  </section>
+</main>

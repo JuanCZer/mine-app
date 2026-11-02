@@ -5,6 +5,8 @@
 /tmp
 /out-tsc
 /bazel-out
+/backend-import/bin
+/backend-import/obj
 
 # Node
 /node_modules
@@ -38,6 +40,15 @@ yarn-error.log
 testem.log
 /typings
 __screenshots__/
+
+# Local environment files and secrets
+/.env
+/.env.*
+!/.env.example
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+/src/app/core/config/public-env.generated.ts
 
 # System files
 .DS_Store

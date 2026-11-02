@@ -1,0 +1,109 @@
+:host {
+  display: block;
+}
+
+.profile-page {
+  display: flex;
+  min-height: 100%;
+}
+
+.profile-panel {
+  width: 100%;
+  padding: 0;
+}
+
+.header {
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 8px 0 10px;
+  color: var(--text);
+  font-size: clamp(2rem, 2.4vw, 2.7rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+
+.info-card,
+.security-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.info-card {
+  padding: 24px 24px 20px;
+}
+
+.info-card h2 {
+  margin: 0 0 18px;
+  color: var(--text);
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.info-card dl {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.info-card div {
+  display: grid;
+  gap: 7px;
+}
+
+.info-card dt {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.info-card dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.security-card {
+  padding: 24px;
+}
+
+@media (max-width: 900px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-panel {
+    padding-bottom: 8px;
+  }
+}

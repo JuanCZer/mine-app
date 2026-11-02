@@ -43,6 +43,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
+app-layout .shell.sidebar-collapsed .sidebar nav a[data-tooltip]::after {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 10px);
+  z-index: 30;
+  display: none;
+  padding: 7px 10px;
+  transform: translateY(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface);
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+app-layout .shell.sidebar-collapsed .sidebar nav a[data-tooltip]:hover::after,
+app-layout .shell.sidebar-collapsed .sidebar nav a[data-tooltip]:focus-visible::after {
+  display: block;
+}
 @media (prefers-reduced-motion: no-preference) {
   button, a, input, textarea, select { transition: color var(--ease), background-color var(--ease), border-color var(--ease), box-shadow var(--ease), opacity var(--ease), transform var(--ease); }
 }

@@ -1,48 +1,152 @@
-<div class="shell" [class.menu-open]="menuOpen">
-  <aside class="sidebar">
-    <a class="brand" routerLink="/incidencias" (click)="menuOpen = false">
-      <span class="brand-mark">G</span>
-      <span><strong>GDS</strong><small>CENTRO C-IED</small></span>
-    </a>
-    <nav aria-label="Navegación principal">
-      <span class="nav-caption">GESTIÓN OPERATIVA</span>
-      <a routerLink="/incidencias" routerLinkActive="active" (click)="menuOpen = false">
-        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l3 3V20.5H7zM14 3.5v4h3M10 12h4M10 16h4" /></svg> Incidencias
-      </a>
-      <a routerLink="/historial" routerLinkActive="active" (click)="menuOpen = false">
-        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5h10M7 12h10M7 18.5h10M4 5.5h.01M4 12h.01M4 18.5h.01" /></svg> Historial
-      </a>
-      <a routerLink="/mapa" routerLinkActive="active" (click)="menuOpen = false">
-        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg> Mapa
-      </a>
-      <span class="nav-caption tools-caption">HERRAMIENTAS</span>
-      <a routerLink="/deteccion" routerLinkActive="active" (click)="menuOpen = false"
-        ><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h11M7 4v6M15 9v6" /></svg> Centro de detección</a
+<div
+  class="shell"
+  [class.mobile]="isMobile()"
+  [class.mobile-menu-open]="mobileMenuOpen()"
+  [class.sidebar-collapsed]="!isMobile() && sidebarCollapsed()"
+>
+  <aside
+    #sidebar
+    id="primary-navigation"
+    class="sidebar"
+    tabindex="-1"
+    aria-label="Menú principal"
+    [attr.aria-hidden]="isMobile() && !mobileMenuOpen() ? 'true' : null"
+    [attr.aria-modal]="isMobile() && mobileMenuOpen() ? 'true' : null"
+    [attr.role]="isMobile() ? 'dialog' : null"
+    [attr.inert]="isMobile() && !mobileMenuOpen() ? '' : null"
+    (keydown)="trapSidebarFocus($event)"
+  >
+    <div class="sidebar-heading">
+      <span>Navegación</span>
+      <button
+        #sidebarToggle
+        class="sidebar-toggle"
+        type="button"
+        aria-controls="primary-nav-links"
+        [attr.aria-hidden]="isMobile() ? 'true' : null"
+        [attr.inert]="isMobile() ? '' : null"
+        [attr.aria-expanded]="sidebarExpanded()"
+        [attr.aria-label]="sidebarExpanded() ? 'Ocultar menú' : 'Abrir menú'"
+        (click)="toggleSidebar()"
       >
-    </nav>
-    <div class="sidebar-footer">
-      <div class="avatar">U</div>
-      <div class="person">
-        <strong>Espacio de trabajo</strong><small>Registro y revisión</small>
-      </div>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </button>
+      <button
+        class="sidebar-close"
+        type="button"
+        aria-label="Cerrar menú"
+        (click)="closeMobileMenu()"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+      </button>
     </div>
+    <nav
+      id="primary-nav-links"
+      aria-label="Navegación principal"
+    >
+      <span class="nav-caption">GESTIÓN OPERATIVA</span>
+      <a routerLink="/incidencias" routerLinkActive="active" aria-label="Incidencias" data-tooltip="Incidencias">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 3.5h7l3 3V20.5H7zM14 3.5v4h3M10 12h4M10 16h4" />
+        </svg>
+        <span class="nav-label">Incidencias</span>
+      </a>
+      <a routerLink="/historial" routerLinkActive="active" aria-label="Historial" data-tooltip="Historial">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 5.5h10M7 12h10M7 18.5h10M4 5.5h.01M4 12h.01M4 18.5h.01" />
+        </svg>
+        <span class="nav-label">Historial</span>
+      </a>
+      <a routerLink="/mapa" routerLinkActive="active" aria-label="Mapa" data-tooltip="Mapa">
+        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+        </svg>
+        <span class="nav-label">Mapa</span>
+      </a>
+
+      @if (canManageUsers()) {
+        <div class="nav-section">
+          <span class="nav-caption">ADMINISTRACIÓN</span>
+          <a
+            routerLink="/administracion/usuarios"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            aria-label="Usuarios"
+            data-tooltip="Usuarios"
+          >
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 2a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 18.5c.6-2.1 2.5-3.5 5-3.5s4.4 1.4 5 3.5M13 18.5c.5-1.8 2.2-3 4.5-3 1.7 0 3.2.8 4.1 2.2" />
+            </svg>
+            <span class="nav-label">Usuarios</span>
+          </a>
+          <a routerLink="/administracion/usuarios/nuevo" routerLinkActive="active"
+            aria-label="Crear usuario" data-tooltip="Crear usuario">
+            <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 19c.6-2.4 2.7-4 6-4 1.5 0 2.7.3 3.7 1M18 12v8m-4-4h8" /></svg>
+            <span class="nav-label">Crear usuario</span>
+          </a>
+        </div>
+      }
+    </nav>
+
+    <button
+      class="sidebar-logout"
+      type="button"
+      [attr.aria-label]="logoutPending() ? 'Cerrando sesión' : 'Cerrar sesión'"
+      [disabled]="logoutPending()"
+      (click)="logout()"
+    >
+      <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M8 12h10" /></svg>
+      <span class="logout-label">{{ logoutPending() ? 'Cerrando…' : 'Cerrar sesión' }}</span>
+    </button>
+    @if (logoutError()) {
+      <div class="session-error" role="alert">
+        <span>{{ logoutError() }}</span>
+        <button type="button" [disabled]="logoutPending()" (click)="logout()">Reintentar</button>
+      </div>
+    }
   </aside>
 
-  <button class="scrim" type="button" aria-label="Cerrar menú" (click)="menuOpen = false"></button>
-  <section class="workspace">
+  <button
+    class="scrim"
+    type="button"
+    tabindex="-1"
+    aria-label="Cerrar menú"
+    (click)="closeMobileMenu()"
+  ></button>
+  <section class="workspace" [attr.inert]="isMobile() && mobileMenuOpen() ? '' : null">
     <header>
-      <button class="menu" type="button" aria-label="Abrir menú" (click)="menuOpen = !menuOpen">
+      <button
+        #menuButton
+        class="menu"
+        type="button"
+        aria-controls="primary-navigation"
+        [attr.aria-expanded]="sidebarExpanded()"
+        [attr.aria-label]="sidebarExpanded() ? 'Ocultar menú' : 'Abrir menú'"
+        (click)="toggleSidebar()"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
       </button>
       <div>
         <span>OPERACIÓN · DETECCIÓN Y SEGUIMIENTO</span>
         <h1>{{ pageTitle() }}</h1>
       </div>
-      <div class="status">
-        <i></i><span>{{ isDetection() ? 'REGISTRO LOCAL' : 'ENTORNO CONTROLADO' }}</span><strong>Operativo</strong>
+      <div class="context">Gestión de incidencias</div>
+      <div class="session">
+        @if (currentUser(); as user) {
+        <button
+          class="session-user-button"
+          type="button"
+          routerLink="/cuenta/perfil"
+          aria-label="Ir al perfil de usuario"
+        >
+          <strong>{{ user.displayName || user.username }}</strong>
+          <span>{{ user.username }}</span>
+        </button>
+        }
       </div>
     </header>
     <main><router-outlet /></main>
-    <footer>GDS · Incidencias y seguimiento por fases</footer>
+    <footer>Incidencias y seguimiento por fases</footer>
   </section>
 </div>

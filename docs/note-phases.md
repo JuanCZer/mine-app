@@ -1,6 +1,6 @@
 # Las cuatro fases de una incidencia
 
-La entrada principal es `/incidencias`. Cada incidencia contiene su registro inicial de indicios, cuatro fases, referencias de evidencia y un historial de guardados y validaciones. El proceso se guarda en la API existente, dentro de `backend/Data/notes.json`.
+La entrada principal es `/incidencias`. Cada incidencia contiene su registro inicial de indicios, cuatro fases, referencias de evidencia y un historial de guardados y validaciones. La API autenticada guarda el proceso en PostgreSQL y aplica ownership por UUID de usuario.
 
 | Fase de la aplicación  | Capa del PDF | Información necesaria para validar                                                                                                                                                  |
 | ---------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ Un reconocimiento inconcluso o una revisión de vigilancia bloqueada no pueden v
 - `EvidencePanel`: referencias de evidencia; se pueden retirar del borrador antes de validar.
 - `CaseTimeline`: historial persistido de guardados y validaciones, con el responsable declarado.
 
-El módulo anterior `/deteccion` conserva sus registros locales y se identifica como **Panel de registros locales** en el menú. Las incidencias y sus validaciones son el flujo principal; no se duplican ni sincronizan con aquellos expedientes locales. La ruta histórica `/notas` redirige a `/incidencias`.
+El módulo anterior `/deteccion` fue retirado porque su almacén compartido no podía aislar cuentas. Sus rutas redirigen a `/incidencias`; la clave local anterior se conserva intacta únicamente para exportación y conciliación controladas, y la aplicación no la lee ni la modifica. La ruta histórica `/notas` también redirige a `/incidencias`.
 
 La ruta histórica `/record` redirige a `/historial`.
 
@@ -42,13 +42,17 @@ La ruta histórica `/record` redirige a `/historial`.
 - `PUT /api/notes/{id}/phases/{stage}`: guarda un borrador de la fase activa con `{ expectedRevision, data }`.
 - `POST /api/notes/{id}/phases/{stage}/validate`: valida exclusivamente la fase activa guardada con `{ expectedRevision }`.
 
-Los identificadores de fase son `indications`, `reconnaissance`, `surveillance` y `mitigation`. La API rechaza con `409` los saltos, cambios a fases validadas, escrituras obsoletas y acciones sobre procesos cerrados; devuelve `422` con la lista de requisitos cuando la fase está incompleta, y `400` para datos mal formados. La comprobación de versión y la transición se realizan bajo el mismo bloqueo de escritura. Los archivos se sustituyen mediante un archivo temporal para no dejar un JSON parcialmente escrito.
+Los identificadores de fase son `indications`, `reconnaissance`, `surveillance` y `mitigation`. La API rechaza con `409` los saltos, cambios a fases validadas, escrituras obsoletas y acciones sobre procesos cerrados; devuelve `422` con la lista de requisitos cuando la fase está incompleta, y `400` para datos mal formados. La comprobación de versión, vigencia de catálogos, transición, evento y auditoría se realiza en una transacción PostgreSQL con bloqueo de la incidencia propietaria y de las opciones seleccionadas.
 
-Las incidencias anteriores sin `workflow` se presentan en la fase 1 sin perder identificador, descripción o coordenadas. Se conserva el nombre JSON histórico `altitude` por compatibilidad con los mapas existentes; su significado y etiqueta visible son **latitud**.
+Al validar, `phase_validations.snapshot` guarda los datos de la fase junto con el código, etiqueta y versión de cada opción utilizada. El DTO expone esta información como `catalogSnapshot`; las pantallas de solo lectura muestran la etiqueta congelada en la validación y no reinterpretan el registro con una etiqueta renombrada posteriormente.
+
+El analizador de incidencias heredadas conserva identificador, descripción, coordenadas y original antes de cualquier importación aprobada. Se mantiene el nombre JSON histórico `altitude` en ese contrato; su significado y etiqueta visible son **latitud**.
+
+Una validación importada con `origin = legacy` conserva el nombre y la fecha históricos, pero deja `validated_by_user_id = NULL`. Ese registro indica procedencia documental y no equivale a una firma autenticada ni atribuye la acción a una cuenta actual.
 
 ## Alcance
 
-Son validaciones documentales de integridad y secuencia. La información de sensores se registra mediante referencias; no hay procesamiento de LiDAR, IA ni control de equipos. El login del proyecto sigue desactivado y el responsable es declarado, no una firma verificada. El almacén JSON admite una sola instancia de API; el bloqueo de escritura no coordina procesos distintos sobre un archivo compartido.
+Son validaciones documentales de integridad y secuencia. La información de sensores se registra mediante referencias; no hay procesamiento de LiDAR, IA ni control de equipos. La identidad proviene de la sesión autenticada y PostgreSQL aplica ownership por UUID. El nombre de responsable capturado en el contenido sigue siendo un dato documental; no reemplaza la identidad que autoriza y audita la operación.
 
 ## Verificación
 

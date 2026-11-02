@@ -16,6 +16,16 @@
   @if (phase().stage === 'indications') {
     <ng-content select="[noteGeneral]" />
   }
+  @if (catalogsLoading()) {
+    <p class="notice" role="status">Cargando catálogos de la fase…</p>
+  } @else if (catalogsError()) {
+    <p class="notice" role="alert">{{ catalogsError() }} <button type="button" class="secondary" (click)="loadCatalogs(phase().stage, true)">Reintentar</button></p>
+  } @else if (!catalogsReady()) {
+    <p class="notice" role="alert">Uno o más catálogos requeridos no tienen opciones activas.</p>
+  }
+  @if (!catalogsLoading()) {
+    <p><button type="button" class="secondary" (click)="loadCatalogs(phase().stage, true)">Actualizar catálogos</button></p>
+  }
   <form [formGroup]="form" (ngSubmit)="save()">
     @switch (phase().stage) {
       @case ('indications') {
@@ -29,7 +39,7 @@
           <label>Referencia de comparación<input formControlName="comparison" maxlength="500" placeholder="Folio, fecha y origen de la observación actual" /></label>
         </div>
         <div class="row">
-          <label>Plataforma I&W<select formControlName="indicationPlatform"><option value="">Selecciona la plataforma</option><option value="if1200a">Inspired Flight IF1200A</option></select></label>
+          <label>Plataforma I&W<select formControlName="indicationPlatform"><option value="">Selecciona la plataforma</option>@for (option of options('platforms', form.controls.indicationPlatform.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
           <label class="check inline"><input type="checkbox" formControlName="blueUasNdaaCompliant" /><span>Cumplimiento Blue UAS / NDAA confirmado</span></label>
         </div>
         <div class="row">
@@ -44,11 +54,11 @@
         <label>Referencia del modelo 3D denso del corredor<input formControlName="terrainModelReference" maxlength="500" placeholder="Folio o ubicación de la nube de puntos / modelo tridimensional" /></label>
         <div class="row">
           <label>Fecha y hora del levantamiento comparativo<input type="datetime-local" formControlName="observedAt" /></label>
-          <label>Fuente del levantamiento<select formControlName="collectionSource"><option value="">Selecciona la fuente</option>@for (source of indicationSources; track source.value) {<option [value]="source.value">{{ source.label }}</option>}</select></label>
+          <label>Fuente del levantamiento<select formControlName="collectionSource"><option value="">Selecciona la fuente</option>@for (option of options('indicationSources', form.controls.collectionSource.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <div class="row">
-          <label>Tipo de suelo<select formControlName="soil"><option value="unknown">Sin determinar</option><option value="vertisol">Vertisol</option><option value="andosol">Andosol / Luvisol</option><option value="leptosol">Leptosol</option></select></label>
-          <label>Temporada<select formControlName="season"><option value="unknown">Sin determinar</option><option value="dry">Seca</option><option value="rainy">Lluvias</option></select></label>
+          <label>Tipo de suelo<select formControlName="soil"><option value="">Selecciona un tipo</option>@for (option of options('soils', form.controls.soil.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
+          <label>Temporada<select formControlName="season"><option value="">Selecciona una temporada</option>@for (option of options('seasons', form.controls.season.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <label>Condiciones de línea base<textarea formControlName="terrainNotes" rows="3" maxlength="2000" placeholder="Topografía, vegetación y firmas del suelo en condiciones no alteradas"></textarea></label>
         <div class="row">
@@ -64,8 +74,8 @@
         <fieldset class="choices">
           <legend>Firmas de alteración observadas</legend>
           <p>Selecciona las firmas identificadas mediante la comparación diferencial.</p>
-          @for (signature of indicationSignatures; track signature.id) {
-            <label class="check"><input #signatureCheck type="checkbox" [checked]="form.controls.signatures.value.includes(signature.id)" (change)="toggleSignature(signature.id, signatureCheck.checked)" /><span>{{ signature.label }}</span></label>
+          @for (signature of options('indicationSignatures', form.controls.signatures.value); track signature.code) {
+            <label class="check"><input #signatureCheck type="checkbox" [disabled]="!signature.active" [checked]="form.controls.signatures.value.includes(signature.code)" (change)="toggleSignature(signature.code, signatureCheck.checked)" /><span>{{ signature.label }}{{ signature.active ? '' : ' (inactivo)' }}</span></label>
           }
         </fieldset>
         @if (form.controls.signatures.value.includes('surface-removal')) {
@@ -89,14 +99,14 @@
           <label>Precisión de localización (cm)<input type="number" min="0.1" max="5" step="0.1" formControlName="localizationAccuracyCm" placeholder="Hasta 5" /></label>
         </div>
         <div class="row">
-          <label>Probabilidad de amenaza<select formControlName="probability"><option value="">Sin clasificar</option><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
-          <label>Prioridad operativa<select formControlName="priority"><option value="">Sin clasificar</option><option value="low">Baja</option><option value="medium">Media</option><option value="high">Alta</option></select></label>
+          <label>Probabilidad de amenaza<select formControlName="probability"><option value="">Sin clasificar</option>@for (option of options('riskLevels', form.controls.probability.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
+          <label>Prioridad operativa<select formControlName="priority"><option value="">Sin clasificar</option>@for (option of options('riskLevels', form.controls.priority.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <label>Referencia del punto georreferenciado<input formControlName="georeferencedPointReference" maxlength="500" placeholder="ID GIS o folio del punto generado por VELES" /></label>
         <label>Referencia del mapa de riesgo<input formControlName="riskMapReference" maxlength="500" placeholder="Folio o ubicación del mapa de riesgo resultante" /></label>
         <label>Referencia de clasificación IA de VELES<input formControlName="aiClassificationReference" maxlength="500" placeholder="Folio del resultado de clasificación y correlación IA" /></label>
         <label class="check single"><input type="checkbox" formControlName="fusionCompleted" /><span>Fusión completada: GPR, magnetometría, RGB e infrarrojo térmico.</span></label>
-        <label>Dictamen técnico<select formControlName="finding"><option value="pending">Pendiente</option><option value="inconclusive">Inconcluso</option><option value="confirmed">Amenaza confirmada</option><option value="false-positive">Falso positivo documentado</option></select></label>
+        <label>Dictamen técnico<select formControlName="finding">@for (option of options('findings', form.controls.finding.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         <p class="hint">Adjunta una referencia por cada fuente VELES: GPR, magnetometría, RGB e infrarrojo térmico. La fase no se valida con una señal aislada.</p>
       }
       @case ('surveillance') {
@@ -111,11 +121,11 @@
         </div>
         <fieldset class="choices compact">
           <legend>Tecnologías móviles cubiertas</legend>
-          @for (technology of radioTechnologies; track technology) {
-            <label class="check"><input #technologyCheck type="checkbox" [checked]="form.controls.radioTechnologies.value.includes(technology)" (change)="toggleRadioTechnology(technology, technologyCheck.checked)" /><span>{{ technology }}</span></label>
+          @for (technology of options('radioTechnologies', form.controls.radioTechnologies.value); track technology.code) {
+            <label class="check"><input #technologyCheck type="checkbox" [disabled]="!technology.active" [checked]="form.controls.radioTechnologies.value.includes(technology.code)" (change)="toggleRadioTechnology(technology.code, technologyCheck.checked)" /><span>{{ technology.label }}{{ technology.active ? '' : ' (inactivo)' }}</span></label>
           }
         </fieldset>
-        <label>Despliegue empleado<select formControlName="deployment"><option value="">Selecciona el despliegue</option><option value="uav">UAV</option><option value="ground-backpack">Unidad terrestre tipo mochila</option><option value="combined">UAV y unidad terrestre</option></select></label>
+        <label>Despliegue empleado<select formControlName="deployment"><option value="">Selecciona el despliegue</option>@for (option of options('surveillanceDeployments', form.controls.deployment.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         @if (form.controls.deployment.value === 'uav' || form.controls.deployment.value === 'combined') {
           <div class="row">
             <label>Canales de cobertura simultánea<input type="number" min="2" step="1" formControlName="coveredChannels" placeholder="2 o más" /></label>
@@ -125,15 +135,15 @@
         <fieldset class="choices methods">
           <legend>Capacidades de vigilancia empleadas</legend>
           <p>Registra cada capacidad ejecutada por la plataforma externa durante este periodo.</p>
-          @for (method of surveillanceMethods; track method.id) {
-            <label class="check"><input #methodCheck type="checkbox" [checked]="form.controls.methods.value.includes(method.id)" (change)="toggleSurveillanceMethod(method.id, methodCheck.checked)" /><span>{{ method.label }}</span></label>
+          @for (method of options('surveillanceMethods', form.controls.methods.value); track method.code) {
+            <label class="check"><input #methodCheck type="checkbox" [disabled]="!method.active" [checked]="form.controls.methods.value.includes(method.code)" (change)="toggleSurveillanceMethod(method.code, methodCheck.checked)" /><span>{{ method.label }}{{ method.active ? '' : ' (inactivo)' }}</span></label>
           }
         </fieldset>
         <div class="row">
           <label>Dispositivos móviles activos detectados<input type="number" min="0" step="1" formControlName="activeDeviceCount" placeholder="0 si no se detectaron" /></label>
-          <label>Actividad humana observada<select formControlName="humanActivity"><option value="">Sin clasificar</option><option value="not-detected">No detectada</option><option value="movement-detected">Personas en movimiento</option><option value="irregular-pattern">Patrón de comportamiento irregular</option><option value="custody-or-activation-risk">Riesgo de custodia o activación</option></select></label>
+          <label>Actividad humana observada<select formControlName="humanActivity"><option value="">Sin clasificar</option>@for (option of options('humanActivities', form.controls.humanActivity.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
-        <label>Decisión sobre el entorno humano<select formControlName="environmentDecision"><option value="">Sin decisión</option><option value="clear-for-mitigation">Entorno certificado para mitigación</option><option value="hold-for-reassessment">Mantener y reevaluar</option></select></label>
+        <label>Decisión sobre el entorno humano<select formControlName="environmentDecision"><option value="">Sin decisión</option>@for (option of options('environmentDecisions', form.controls.environmentDecision.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         <p class="hint">Se requieren las referencias EO/IR y de captura IMSI, IMEI o TMSI, además de un método de geolocalización o radiogoniometría. Solo una certificación del entorno habilita Fase 4.</p>
       }
       @case ('mitigation') {
@@ -144,10 +154,10 @@
         </aside>
         <div class="row">
           <label class="check inline"><input type="checkbox" formControlName="coordinateReceived" /><span>Coordenada exacta de VELES recibida</span></label>
-          <label>Plataforma de limpieza<select formControlName="platform"><option value="">Selecciona la plataforma</option><option value="husky-route-clearance">Husky · limpieza de rutas</option></select></label>
+          <label>Plataforma de limpieza<select formControlName="platform"><option value="">Selecciona la plataforma</option>@for (option of options('platforms', form.controls.platform.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <div class="row">
-          <label>Nivel de protección STANAG 4569<select formControlName="protectionLevel"><option value="">Selecciona el nivel</option><option value="stanag-4">Nivel 4 · proyectil AP de 14.5 mm</option><option value="stanag-5">Nivel 5 · cañón automático de 30 mm</option></select></label>
+          <label>Nivel de protección STANAG 4569<select formControlName="protectionLevel"><option value="">Selecciona el nivel</option>@for (option of options('protectionLevels', form.controls.protectionLevel.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
           <fieldset class="choice-pair"><legend>Protección confirmada</legend><label class="check"><input type="checkbox" formControlName="personnelProtectionConfirmed" /><span>Personal</span></label><label class="check"><input type="checkbox" formControlName="equipmentProtectionConfirmed" /><span>Equipo</span></label></fieldset>
         </div>
         <div class="row three">
@@ -166,8 +176,8 @@
         </div>
         <label>Referencia de entrega al operador EOD<input formControlName="eodHandoffReference" maxlength="500" placeholder="Folio de entrega antes de cualquier contacto físico" /></label>
         <div class="row">
-          <label>Resultado de neutralización<select formControlName="neutralizationResult"><option value="">Sin resultado</option><option value="neutralized">Dispositivo neutralizado de forma controlada</option><option value="not-neutralized">No neutralizado</option></select></label>
-          <label>Resultado de apertura de ruta<select formControlName="routeResult"><option value="">Sin resultado</option><option value="route-opened">Ruta segura abierta</option><option value="not-applicable">No aplica al objetivo</option></select></label>
+          <label>Resultado de neutralización<select formControlName="neutralizationResult"><option value="">Sin resultado</option>@for (option of options('neutralizationResults', form.controls.neutralizationResult.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
+          <label>Resultado de apertura de ruta<select formControlName="routeResult"><option value="">Sin resultado</option>@for (option of options('routeResults', form.controls.routeResult.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <fieldset class="techint">
           <legend>Explotación TECHINT posterior a la neutralización</legend>
@@ -181,7 +191,7 @@
     }
   </form>
 </section>
-<app-evidence-panel [evidence]="draft().evidence" [editable]="editable() && !busy()" [allowRemove]="true" [draftMode]="true" [allowedSensors]="evidenceSensors()" (added)="addEvidence($event)" (removed)="removeEvidence($event)" (draftChange)="pendingEvidence.set($event)" />
+<app-evidence-panel [evidence]="draft().evidence" [editable]="editable() && !busy()" [allowRemove]="true" [draftMode]="true" [sensorOptions]="evidenceSensors()" [catalogReady]="catalogsReady()" (added)="addEvidence($event)" (removed)="removeEvidence($event)" (draftChange)="pendingEvidence.set($event)" />
 @if (editable()) {
   <section class="validation" aria-label="Validación obligatoria de la fase">
     <h4>Validación obligatoria</h4>
@@ -195,8 +205,8 @@
     @if (pendingEvidence()) {<p class="notice">Agrega al borrador la evidencia que estás escribiendo o limpia sus campos.</p>}
     <div class="actions">
       <span>{{ dirty() ? 'Cambios sin guardar' : 'Borrador guardado; aún requiere validación' }}</span>
-      <button type="button" class="secondary" [disabled]="busy() || basePending() || pendingEvidence() || form.invalid || !dirty()" (click)="save()">{{ busy() ? 'Procesando…' : 'Guardar borrador de fase' }}</button>
-      <button type="button" class="primary" [disabled]="busy() || basePending() || dirty() || issues().length > 0" (click)="validate()">{{ validationLabel() }}</button>
+      <button type="button" class="secondary" [disabled]="busy() || !catalogsReady() || basePending() || pendingEvidence() || form.invalid || !dirty()" (click)="save()">{{ busy() ? 'Procesando…' : 'Guardar borrador de fase' }}</button>
+      <button type="button" class="primary" [disabled]="busy() || !catalogsReady() || basePending() || dirty() || issues().length > 0" (click)="validate()">{{ validationLabel() }}</button>
     </div>
     <small>Guardar no valida. La API verifica los requisitos antes de habilitar la siguiente fase.</small>
   </section>

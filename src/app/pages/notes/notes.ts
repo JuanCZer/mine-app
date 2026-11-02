@@ -106,9 +106,12 @@ export class NotesPage implements OnInit {
       this.notes.set(notes);
       this.resetToken.update((value) => value + 1);
       const id = this.selected()?.id ?? this.route.snapshot.queryParamMap.get('note');
-      const selected = notes.find((note) => note.id === id) ?? notes[0];
+      const selected = id ? notes.find((note) => note.id === id) : notes[0];
       if (selected) this.selectNote(selected);
-      else this.resetNote();
+      else {
+        this.resetNote();
+        if (id) this.error.set('No se encontró la incidencia solicitada en tus registros.');
+      }
     } catch (error) {
       this.error.set(noteError(error));
     } finally {
@@ -226,7 +229,7 @@ export class NotesPage implements OnInit {
     this.saving.set(true);
     this.error.set('');
     try {
-      await firstValueFrom(this.notesService.delete(note.id));
+      await firstValueFrom(this.notesService.delete(note.id, note.revision ?? 0));
       this.notes.update((items) => items.filter((item) => item.id !== note.id));
       if (this.selected()?.id === note.id) this.resetNote();
     } catch (error) {

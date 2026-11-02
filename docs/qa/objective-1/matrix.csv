@@ -1,0 +1,28 @@
+area,ruta,viewport,modo,resultado,evidencia,observaciones
+Sidebar,/incidencias,1280x850,Rail compacto,PASS,Safari Responsive Design Mode y AX,"Rail de 72 px con botón Abrir menú dentro; workspace desde x=72 y ancho útil aproximado de 1208 px; el árbol AX conserva Incidencias, Historial y Mapa."
+Sidebar,/incidencias,1280x850,Expandido,PASS,Safari Responsive Design Mode y AX,Sidebar de 280 px y workspace desde x=280; botón Ocultar menú dentro del encabezado.
+Sidebar,/incidencias,767x850,Móvil cerrado y abierto,PASS,Safari Responsive Design Mode y AX,"Trigger en cabecera; al abrir, drawer de 280 px y scrim sobre workspace."
+Sidebar,/incidencias,768x850,Límite desktop,PASS,AppLayout spec (MediaQueryList 768) y CSS compartido,Modo push cubierto por spec. Safari Responsive Design Mode no permitió confirmar el innerWidth efectivo al píxel exacto del límite.
+Sidebar,/incidencias,1280x850,Divisores,PASS,Safari Responsive Design Mode,Borde inferior de .sidebar-heading coincide visualmente con header a y=88 px; no se observó overflow horizontal.
+Sidebar,/incidencias,1440x1024,Rail compacto con iconos,PASS,Safari Responsive Design Mode y AX,"Rail de 72 px con Incidencias, Historial y Mapa centrados; la ruta activa mantiene fondo/contraste y barra lateral; workspace continúa visible desde x=72. Los enlaces conservan nombres accesibles en el árbol."
+Accesibilidad,/incidencias,1440x1024,Tooltip de rail,LIMITED,AppLayout spec (LESS compilado y CSSOM); AX de Safari en fixture sintético file://,"El spec confirma el selector acotado a app-layout, la declaración content: attr(data-tooltip), position:absolute, pointer-events:none y las variantes hover/focus-visible. AX del fixture Safari conserva Incidencias, Historial y Mapa. El estado visible al hover/focus no se pudo activar: no se declara validación visual del tooltip; resultado LIMITED. Sin backend, base, proxy ni puerto 5068."
+Incidencias,/incidencias,1440x900,Escritorio expandido y colapsado,PASS,Inspección visual Safari y AX,La barra permanece alineada; al colapsar libera el ancho y el botón queda disponible.
+Incidencias,/incidencias,1920x1080,Escritorio expandido,PASS,Inspección visual Safari y AX,"Cabecera, listado, secuencia de cuatro fases y formulario permanecen alineados."
+Incidencias,/incidencias,1024x768,Escritorio compacto,PASS,Inspección visual Safari y AX,"La cabecera compacta evita cruces entre título, sesión y cierre."
+Incidencias,/incidencias,1280x850,Escritorio expandido y colapsado,PASS,Geometría Safari del LESS real,"Expandido reserva 280 px y deja ~1000 px al workspace; colapsado empieza en x=72 y deja ~1208 px útiles (1280−72), no 1280 px."
+Incidencias,/incidencias,768x850,Límite de empuje,PASS,AppLayout spec (MediaQueryList a 768 px),"El modo push en el límite exacto está acreditado por el spec; Safari Responsive Design Mode no confirmó el innerWidth efectivo al píxel exacto, así que esta fila no atribuye geometría de navegador a 768 px."
+Incidencias,/incidencias,767x850,Límite modal,PASS,Geometría Safari del LESS real,El panel abierto mide 280 px sobre el workspace y muestra scrim.
+Incidencias,/incidencias,390x844,Móvil,PASS,Inspección visual Safari y AX,"Sin desbordamiento horizontal de página; cabecera, buscador, lista y progreso legibles."
+Incidencias,/incidencias,375x812,Móvil,PASS,Inspección visual Safari y AX,Las cuatro fases y los campos de Fase 1 permanecen disponibles.
+Historial,/historial,901x768,Escritorio compacto,PASS,Inspección visual Safari y AX,La cabecera no invade controles y la tabla conserva filas de una línea.
+Historial,/historial,375x812,Móvil,PASS,Inspección visual Safari y AX,El ancho de página permanece estable; la tabla usa desplazamiento horizontal interno.
+Mapa,/mapa,1440x900,Escritorio expandido colapsado y reabierto,PASS,Inspección visual Safari y AX,El contenedor y los controles se ajustan sin recarga; ResizeObserver también está cubierto por pruebas.
+Mapa,/mapa,768x1024,Sidebar empuja y mapa apilado,PASS,Safari Responsive Design Mode con fixture sintético,MapPage dispone de unos 440 px; lista y mapa se apilan y el mapa ocupa el ancho disponible.
+Mapa,/mapa,1440x1024,Escritorio ancho,PASS,Safari Responsive Design Mode con fixture sintético,MapPage conserva dos columnas: lista de 310 px y mapa en el espacio restante.
+Mapa,/mapa,375x812,Móvil,PASS,Inspección visual Safari y AX,"Lista, contenedor Mapbox, atribución y controles de zoom están disponibles."
+Compatibilidad,/deteccion,375x812,Redirección,PASS,URL y AX,Redirige a /incidencias con el expediente sintético seleccionado.
+Compatibilidad,/deteccion/qa-visual-001,375x812,Redirección,PASS,URL y AX,Redirige a /incidencias con el expediente sintético seleccionado.
+Accesibilidad,/incidencias,1920x1080,Zoom de página 200%,PASS,Inspección visual Safari y AX,"Controles visibles, títulos sin invadir controles y contenido desplazable."
+Accesibilidad,/incidencias,Móvil,Teclado,PASS,Pruebas AppLayout 17/17 y comprobación visual,Tab y Shift+Tab quedan dentro del panel; Escape cierra y devuelve foco; el fondo usa inert.
+Persistencia,/incidencias,375-1920 px,Borrador real,PASS,Formulario real en Safari y prueba AppLayout,QA-BORRADOR-SIN-GUARDAR permaneció en el mismo control y continuó marcado como cambio sin guardar.
+Movimiento,/incidencias,Todas,Movimiento reducido,PASS,Código y pruebas,El cambio de geometría no depende de transiciones; el estado se comunica de inmediato.

@@ -1,3 +1,5 @@
+using Notes.Api.Catalogs;
+
 namespace Notes.Api.Models;
 
 public sealed record PhaseReview(
@@ -5,7 +7,7 @@ public sealed record PhaseReview(
     string Environment = "pending", string Report = "", string Techint = "",
     string Reviewer = "", string Notes = "");
 
-public sealed record PhaseEvidence(string Id, string Sensor, string Reference, string Summary);
+public sealed record PhaseEvidence(string Id, string Sensor, string Reference, string Summary, string? RecordedAt = null);
 public sealed record PhaseOneIntake(
     string Platform = "", bool BlueUasNdaaCompliant = false, double? FlightDurationMin = null,
     double? LidarPointRate = null, double? PayloadLb = null, double? MissionSpeedMph = null,
@@ -15,7 +17,7 @@ public sealed record PhaseOneIntake(
     string ObservedAt = "", string CollectionSource = "", List<string>? Signatures = null,
     string AlternativeCauses = "", double? DepressionDepthCm = null)
 {
-    public static PhaseOneIntake Empty() => new();
+    public static PhaseOneIntake Empty() => new(Signatures: []);
 }
 
 public sealed record ReconnaissanceIntake(
@@ -57,7 +59,12 @@ public sealed record PhaseData(
         new(), "unknown", "unknown", "", [], PhaseOneIntake.Empty(), ReconnaissanceIntake.Empty(),
         SurveillanceIntake.Empty(), MitigationIntake.Empty());
 }
-public sealed record NotePhase(string Stage, PhaseData Data, DateTimeOffset? ValidatedAt = null, string? ValidatedBy = null);
+public sealed record NotePhase(
+    string Stage,
+    PhaseData Data,
+    DateTimeOffset? ValidatedAt = null,
+    string? ValidatedBy = null,
+    CatalogValidationSnapshot? CatalogSnapshot = null);
 public sealed record WorkflowEvent(string Id, DateTimeOffset At, string Actor, string Text);
 public sealed record NoteWorkflow(string Status, List<NotePhase> Phases, List<WorkflowEvent> History)
 {
@@ -76,17 +83,13 @@ public sealed class WorkflowException(string message, int statusCode = 409, IRea
 public static class WorkflowRules
 {
     public static readonly string[] Stages = ["indications", "reconnaissance", "surveillance", "mitigation"];
-    private static readonly string[] Sensors = ["LiDAR", "RGB", "IR", "GPR", "Magnetometría", "EO/IR", "IMSI/IMEI/TMSI", "EOD", "TECHINT", "Observación", "Informe"];
+    // These codes change workflow semantics. Their labels and membership come from PostgreSQL,
+    // while changes to their behavior require an explicit code change and migration.
     private static readonly string[] IndicationSources = ["if1200a-lidar", "if1200a-lidar-rgb-ir"];
-    private static readonly string[] IndicationSignatures = ["surface-removal", "irregular-edge", "vegetation-change", "soil-density-change"];
     private static readonly string[] RiskLevels = ["low", "medium", "high"];
-    private static readonly string[] RadioTechnologies = ["2G", "3G", "4G", "5G"];
-    private static readonly string[] SurveillanceMethods = ["imsi-imei-tmsi-capture", "target-import-export", "precision-mapping", "silent-call-df", "imsi-imei-alert", "operations-center-access", "selective-signal-block", "online-offline-mapping", "uav-camera-feed", "gsma-tac", "target-api", "ground-refinement-realtime", "radio-stack-configuration"];
     private static readonly string[] Deployments = ["uav", "ground-backpack", "combined"];
     private static readonly string[] HumanActivities = ["not-detected", "movement-detected", "irregular-pattern", "custody-or-activation-risk"];
-    private static readonly string[] EnvironmentDecisions = ["clear-for-mitigation", "hold-for-reassessment"];
     private static readonly string[] ProtectionLevels = ["stanag-4", "stanag-5"];
-    private static readonly string[] NeutralizationResults = ["neutralized", "not-neutralized"];
     private static readonly string[] RouteResults = ["route-opened", "not-applicable"];
 
     public static void CheckRevision(Note note, int? expected)
@@ -107,19 +110,16 @@ public static class WorkflowRules
     {
         if (data?.Review is null || data.Evidence is null) throw new WorkflowException("La información de la fase no es válida.", 400);
         var review = data.Review;
-        if (!new[] { "unknown", "vertisol", "andosol", "leptosol" }.Contains(data.Soil)
-            || !new[] { "unknown", "dry", "rainy" }.Contains(data.Season)
-            || !new[] { "pending", "confirmed", "inconclusive", "false-positive" }.Contains(review.Finding)
-            || !new[] { "pending", "blocked", "reviewed" }.Contains(review.Environment))
-            throw new WorkflowException("Una de las opciones de revisión no es válida.", 400);
+        if (string.IsNullOrEmpty(data.Soil) || string.IsNullOrEmpty(data.Season)
+            || string.IsNullOrEmpty(review.Finding) || string.IsNullOrEmpty(review.Environment))
+            throw new WorkflowException("Completa las opciones obligatorias de revisión.", 400);
         if (new[] { review.Baseline, review.Comparison, review.Report, review.Techint }.Any(value => value is null || value.Length > 500)
             || review.Reviewer is null || review.Reviewer.Length > 100 || review.Notes is null || review.Notes.Length > 5000
             || data.TerrainNotes is null || data.TerrainNotes.Length > 2000 || data.Evidence.Count > 100)
             throw new WorkflowException("Revisa los campos y los límites de longitud de la fase.", 400);
         var indications = data.Indications;
         if (indications is not null && (
-            !ChoiceOrEmpty(indications.Platform, ["if1200a"])
-            || !FiniteWithin(indications.FlightDurationMin, 0, 43)
+            !FiniteWithin(indications.FlightDurationMin, 0, 43)
             || !FiniteWithin(indications.LidarPointRate, 0, 5000000)
             || !FiniteWithin(indications.PayloadLb, 0, 19.1)
             || !FiniteWithin(indications.MissionSpeedMph, 0, 56)
@@ -127,10 +127,10 @@ public static class WorkflowRules
             || !StringWithin(indications.TerrainModelReference, 500)
             || !FiniteWithin(indications.SurfaceVariationMm, 0, 1000)
             || indications.ObservedAt is null || indications.ObservedAt.Length > 50
-            || indications.CollectionSource is null || (!string.IsNullOrEmpty(indications.CollectionSource) && !IndicationSources.Contains(indications.CollectionSource))
+            || indications.CollectionSource is null
             || indications.AlternativeCauses is null || indications.AlternativeCauses.Length > 2000
             || indications.DepressionDepthCm is { } depth && (!double.IsFinite(depth) || depth < 0 || depth > 100)
-            || indications.Signatures is not null && (indications.Signatures.Count > IndicationSignatures.Length || indications.Signatures.Any(signature => !IndicationSignatures.Contains(signature)) || indications.Signatures.Distinct().Count() != indications.Signatures.Count)))
+            || indications.Signatures is not null && (indications.Signatures.Count > 100 || indications.Signatures.Distinct().Count() != indications.Signatures.Count)))
             throw new WorkflowException("La información de indicios no corresponde al formato de la fase 1.", 400);
         var reconnaissance = data.Reconnaissance;
         if (reconnaissance is not null && (
@@ -138,8 +138,6 @@ public static class WorkflowRules
             || !FiniteWithin(reconnaissance.GprDepthCm, 0, 1000)
             || !FiniteWithin(reconnaissance.RtkAccuracyCm, 0, 100)
             || !FiniteWithin(reconnaissance.LocalizationAccuracyCm, 0, 100)
-            || !ChoiceOrEmpty(reconnaissance.Probability, RiskLevels)
-            || !ChoiceOrEmpty(reconnaissance.Priority, RiskLevels)
             || !StringWithin(reconnaissance.GeoreferencedPointReference, 500)
             || !StringWithin(reconnaissance.RiskMapReference, 500)
             || !StringWithin(reconnaissance.AiClassificationReference, 500)))
@@ -148,33 +146,27 @@ public static class WorkflowRules
         if (surveillance is not null && (
             !StringWithin(surveillance.ObservationStartedAt, 50)
             || !StringWithin(surveillance.ObservationEndedAt, 50)
-            || !ListWithin(surveillance.RadioTechnologies, RadioTechnologies)
-            || !ListWithin(surveillance.Methods, SurveillanceMethods)
-            || !ChoiceOrEmpty(surveillance.Deployment, Deployments)
+            || !ListHasUniqueValues(surveillance.RadioTechnologies)
+            || !ListHasUniqueValues(surveillance.Methods)
             || surveillance.CoveredChannels is { } channels && (channels < 0 || channels > 100)
             || surveillance.ActiveDeviceCount is { } devices && (devices < 0 || devices > 100000)
-            || !ChoiceOrEmpty(surveillance.HumanActivity, HumanActivities)
-            || !ChoiceOrEmpty(surveillance.EnvironmentDecision, EnvironmentDecisions)))
+            ))
             throw new WorkflowException("La información de vigilancia no corresponde al formato de la fase 3.", 400);
         var mitigation = data.Mitigation;
         if (mitigation is not null && (
-            !ChoiceOrEmpty(mitigation.Platform, ["husky-route-clearance"])
-            || !ChoiceOrEmpty(mitigation.ProtectionLevel, ProtectionLevels)
-            || mitigation.DetectionAssets is { } detectionAssets && (detectionAssets < 0 || detectionAssets > 100)
+            mitigation.DetectionAssets is { } detectionAssets && (detectionAssets < 0 || detectionAssets > 100)
             || mitigation.InterrogationAssets is { } interrogationAssets && (interrogationAssets < 0 || interrogationAssets > 100)
             || !FiniteWithin(mitigation.SafetyMarginM, 0, 100000)
             || !StringWithin(mitigation.ArtifactType, 500)
             || !StringWithin(mitigation.Orientation, 500)
             || !StringWithin(mitigation.ActivationMechanism, 500)
             || !StringWithin(mitigation.EodHandoffReference, 500)
-            || !ChoiceOrEmpty(mitigation.NeutralizationResult, NeutralizationResults)
-            || !ChoiceOrEmpty(mitigation.RouteResult, RouteResults)
             || !StringWithin(mitigation.TechintComposition, 2000)
             || !StringWithin(mitigation.TechintManufacture, 2000)
             || !StringWithin(mitigation.TechintSignature, 2000)
             || !StringWithin(mitigation.CatalogFeedbackReference, 500)))
             throw new WorkflowException("La información de mitigación no corresponde al formato de la fase 4.", 400);
-        if (data.Evidence.Any(e => e is null || string.IsNullOrWhiteSpace(e.Id) || e.Id.Length > 100 || !Sensors.Contains(e.Sensor)
+        if (data.Evidence.Any(e => e is null || string.IsNullOrWhiteSpace(e.Id) || e.Id.Length > 100 || string.IsNullOrWhiteSpace(e.Sensor)
             || string.IsNullOrWhiteSpace(e.Reference) || e.Reference.Length > 300 || string.IsNullOrWhiteSpace(e.Summary) || e.Summary.Length > 2000)
             || data.Evidence.Select(e => e.Id).Distinct().Count() != data.Evidence.Count)
             throw new WorkflowException("Cada evidencia necesita fuente, referencia y descripción válidas.", 400);
@@ -269,7 +261,6 @@ public static class WorkflowRules
     }
 
     private static bool FiniteWithin(double? value, double minimum, double maximum) => value is null || (double.IsFinite(value.Value) && value.Value >= minimum && value.Value <= maximum);
-    private static bool ChoiceOrEmpty(string? value, string[] choices) => string.IsNullOrEmpty(value) || choices.Contains(value);
     private static bool StringWithin(string? value, int maximum) => value is not null && value.Length <= maximum;
-    private static bool ListWithin(List<string>? values, string[] choices) => values is null || (values.Count <= choices.Length && values.All(choices.Contains) && values.Distinct().Count() == values.Count);
+    private static bool ListHasUniqueValues(List<string>? values) => values is null || (values.Count <= 100 && values.All(value => !string.IsNullOrWhiteSpace(value)) && values.Distinct().Count() == values.Count);
 }

@@ -4,7 +4,7 @@ import { Note, NoteInput } from '../models/note.model';
 import { DetectionStage } from '../models/detection.model';
 import { NotePhaseData } from '../models/note-workflow.model';
 
-const API_URL = 'http://localhost:5068/api/notes';
+const API_URL = '/api/notes';
 @Injectable({ providedIn: 'root' })
 export class NotesService {
   constructor(private readonly http: HttpClient) {}
@@ -17,8 +17,10 @@ export class NotesService {
   update(id: string, note: NoteInput) {
     return this.http.put<Note>(`${API_URL}/${id}`, note);
   }
-  delete(id: string) {
-    return this.http.delete<void>(`${API_URL}/${id}`);
+  delete(id: string, expectedRevision: number) {
+    return this.http.delete<void>(`${API_URL}/${id}`, {
+      params: { expectedRevision },
+    });
   }
   savePhase(note: Note, stage: DetectionStage, data: NotePhaseData) {
     return this.http.put<Note>(`${API_URL}/${note.id}/phases/${stage}`, {

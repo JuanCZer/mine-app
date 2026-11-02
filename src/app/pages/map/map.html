@@ -1,52 +1,28 @@
 <section class="intro">
-  <div>
-    <span>UBICACIÓN DE INCIDENCIAS</span>
-    <h2>Incidencias en el mapa.</h2>
-    <p>Cada marcador representa una incidencia con coordenadas registradas.</p>
-  </div>
+  <div><span>UBICACIÓN DE INCIDENCIAS</span><h2>Mapa de zonas de proximidad.</h2><p>Las zonas representan un radio de 1 km alrededor de cada incidencia.</p></div>
   <a routerLink="/incidencias">＋ Registrar incidencia</a>
 </section>
 <section class="map-card">
-  <aside>
-    <div class="summary">
-      <strong>{{ visibleNotes().length }}</strong
-      ><span>INCIDENCIAS CON UBICACIÓN</span
-      ><label
-        >Filtrar por área o corredor<select #area (change)="filterByState(area.value)">
-          <option value="">Todas las áreas</option>
-          @for (item of areas(); track item) {
-            <option [value]="item">{{ item }}</option>
-          }
-        </select></label
-      >
-    </div>
-    <div class="locations">
-      @for (note of visibleNotes(); track note.id) {
-        <button type="button" (click)="focus(note)">
-          <i>⌖</i
-          ><span
-            ><strong>{{ note.title || 'Incidencia sin identificar' }}</strong
-            ><small>{{ note.altitude }}, {{ note.longitude }}</small></span
-          ><b>›</b>
-        </button>
-      } @empty {
-        @if (!loading()) {
-          <div class="empty">
-            <b>⌖</b><strong>Sin ubicaciones</strong>
-            <p>Registra latitud y longitud de una incidencia para verla aquí.</p>
-            <a routerLink="/incidencias">Ir a incidencias</a>
-          </div>
-        }
-      }
-    </div>
-  </aside>
   <div class="map-wrap">
-    <div #mapContainer class="map" aria-label="Mapa de incidencias"></div>
-    @if (loading()) {
-      <div class="overlay">Cargando mapa…</div>
-    }
-    @if (error()) {
-      <div class="overlay error">{{ error() }}</div>
+    <div #mapContainer class="map" aria-label="Mapa de incidencias por proximidad"></div>
+    @if (densityWarning()) { <div class="map-density-warning" role="status">{{ densityWarning() }}</div> }
+    @if (loading()) { <div class="overlay">Cargando mapa…</div> }
+    @if (sectorError() || pointError() || mapError() || error()) {
+      <div class="map-error" role="alert">
+        @if (sectorError()) { <p>{{ sectorError() }} <button type="button" (click)="retrySectors()">Reintentar</button></p> }
+        @if (pointError()) { <p>{{ pointError() }}</p> }
+        @if (mapError()) { <p>{{ mapError() }}</p> }
+        @if (error()) { <p>{{ error() }}</p> }
+      </div>
     }
   </div>
+  <aside class="legend" aria-label="Leyenda de cercanía por zona">
+    <strong>Cercanía 1 km</strong>
+    @if (totalIncidents() !== null) { <p>Total de incidencias geolocalizadas: {{ totalIncidents() }}</p> }
+    <p>Cada círculo cuenta incidencias distintas a 1 km de su centro, incluida la central. En zonas superpuestas se muestra el color del conteo más alto. Los conteos locales no se suman.</p>
+    <div class="legend-item"><span class="swatch green"></span>0–99</div>
+    <div class="legend-item"><span class="swatch yellow"></span>100–300</div>
+    <div class="legend-item"><span class="swatch orange"></span>301–599</div>
+    <div class="legend-item"><span class="swatch red"></span>600 o más</div>
+  </aside>
 </section>

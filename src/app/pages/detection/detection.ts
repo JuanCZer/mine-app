@@ -1,16 +1,13 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { CaseForm } from '../../components/detection/case-form';
 import { CaseMap } from '../../components/detection/case-map';
 import { DetectionOverview } from '../../components/detection/detection-overview';
-import {
-  CaseInput,
-  DETECTION_LAYERS,
-  PRIORITY_LABELS,
-  SOIL_LABELS,
-  stageLabel,
-} from '../../core/models/detection.model';
+import { CaseInput } from '../../core/models/detection.model';
+import { CatalogItem, CatalogKey } from '../../core/models/catalog.model';
+import { CatalogsService } from '../../core/services/catalogs.service';
 import { DetectionService } from '../../core/services/detection.service';
 import { downloadCases } from '../../core/services/detection-export';
 
@@ -20,14 +17,15 @@ import { downloadCases } from '../../core/services/detection-export';
   templateUrl: './detection.html',
   styleUrl: './detection.less',
 })
-export class DetectionPage {
+export class DetectionPage implements OnInit {
   readonly store = inject(DetectionService);
+  private readonly catalogsService = inject(CatalogsService);
   private readonly router = inject(Router);
   @ViewChild('createDialog') dialog!: ElementRef<HTMLDialogElement>;
-  readonly layers = DETECTION_LAYERS;
-  readonly priorities = PRIORITY_LABELS;
-  readonly soils = SOIL_LABELS;
-  readonly stageLabel = stageLabel;
+  private readonly catalogKeys: readonly CatalogKey[] = ['mexicoStates', 'soils', 'riskLevels', 'workflowStatuses', 'workflowStages'];
+  readonly catalogs = signal<Partial<Record<CatalogKey, CatalogItem[]>>>({});
+  readonly catalogLoading = signal(true);
+  readonly catalogError = signal('');
   readonly search = signal('');
   readonly stage = signal('');
   readonly priority = signal('');
@@ -58,6 +56,31 @@ export class DetectionPage {
   readonly hasFilters = computed(
     () => !!(this.search() || this.stage() || this.priority() || this.status()),
   );
+  ngOnInit() {
+    void this.loadCatalogs();
+  }
+  async loadCatalogs(reload = false) {
+    this.catalogLoading.set(true);
+    this.catalogError.set('');
+    try {
+      const response = await firstValueFrom(
+        reload
+          ? this.catalogsService.reload(this.catalogKeys, { includeInactive: true })
+          : this.catalogsService.load(this.catalogKeys, { includeInactive: true }),
+      );
+      this.catalogs.set(response.catalogs);
+    } catch {
+      this.catalogError.set('No fue posible actualizar los catálogos. Los expedientes siguen disponibles para consulta.');
+    } finally {
+      this.catalogLoading.set(false);
+    }
+  }
+  options(key: CatalogKey, selected = '') {
+    return this.catalogsService.selectable(this.catalogs()[key] ?? [], selected);
+  }
+  label(key: CatalogKey, code: string) {
+    return this.catalogsService.label(this.catalogs()[key] ?? [], code, code);
+  }
   filter(field: 'search' | 'stage' | 'priority' | 'status', value: string) {
     this[field].set(value);
     this.page.set(1);

@@ -34,15 +34,16 @@
           placeholder="Tu contraseña"
         />
       </div>
+      <p>¿Olvidaste tu contraseña? Solicita a un administrador que la restablezca.</p>
+      @if (sessionUnavailable && !error()) {
+        <p class="error" role="status">No fue posible verificar la sesión. Revisa la conexión e inténtalo de nuevo.</p>
+      }
       @if (error()) {
         <p class="error" role="alert">{{ error() }}</p>
       }
       <button class="submit" [disabled]="loading()" type="submit">
         {{ loading() ? 'Ingresando…' : 'Acceder al sistema' }} <span aria-hidden="true">→</span>
       </button>
-      <div class="demo">
-        <strong>Acceso de demostración</strong><span>Usuario: demo · Contraseña: Demo123!</span>
-      </div>
     </form>
   </section>
 </main>

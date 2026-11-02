@@ -55,8 +55,8 @@
       ><span class="sr-only">Filtrar por etapa</span
       ><select #stageSelect [value]="stage()" (change)="filter('stage', stageSelect.value)">
         <option value="">Todas las capas</option>
-        @for (layer of layers; track layer.id) {
-          <option [value]="layer.id">{{ layer.number }} · {{ layer.title }}</option>
+        @for (option of options('workflowStages', stage()); track option.code) {
+          <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
         }
       </select></label
     >
@@ -68,27 +68,32 @@
         (change)="filter('priority', prioritySelect.value)"
       >
         <option value="">Toda prioridad</option>
-        <option value="high">Alta</option>
-        <option value="medium">Media</option>
-        <option value="low">Baja</option>
+        @for (option of options('riskLevels', priority()); track option.code) {
+          <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+        }
       </select></label
     >
     <label
       ><span class="sr-only">Filtrar por estado</span
       ><select #statusSelect [value]="status()" (change)="filter('status', statusSelect.value)">
         <option value="">Todos los estados</option>
-        <option value="open">Abiertos</option>
-        <option value="closed">Cerrados</option>
-        <option value="discarded">Falsos positivos</option>
+        @for (option of options('workflowStatuses', status()); track option.code) {
+          <option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>
+        }
       </select></label
     >
     @if (hasFilters()) {
       <button type="button" class="text-button" (click)="clearFilters()">Limpiar</button>
     }
   </div>
+  @if (catalogLoading()) {
+    <p class="footnote" role="status">Cargando catálogos de filtros…</p>
+  } @else if (catalogError()) {
+    <p class="error" role="alert">{{ catalogError() }} <button type="button" class="text-button" (click)="loadCatalogs(true)">Reintentar</button></p>
+  }
   @defer (when mapVisible()) {
     @if (mapVisible()) {
-      <div class="map-wrap"><app-case-map [cases]="filtered()" (opened)="open($event)" /></div>
+      <div class="map-wrap"><app-case-map [cases]="filtered()" [riskOptions]="options('riskLevels')" [stageOptions]="options('workflowStages')" (opened)="open($event)" /></div>
     }
   }
   @if (visible().length) {
@@ -118,25 +123,21 @@
               </td>
               <td>
                 <strong>{{ item.municipality }}</strong
-                ><small>{{ item.state }} · {{ soils[item.soil] }}</small
+                ><small>{{ label('mexicoStates', item.state) }} · {{ label('soils', item.soil) }}</small
                 ><small class="coords"
                   >{{ item.latitude | number: '1.4-5' }},
                   {{ item.longitude | number: '1.4-5' }}</small
                 >
               </td>
               <td>
-                <span class="stage-dot"></span>{{ stageLabel(item.stage)
-                }}<small>{{
-                  item.status === 'open'
-                    ? 'En revisión'
-                    : item.status === 'discarded'
-                      ? 'Cerrado · falso positivo'
-                      : 'Cerrado con informe'
+                <span class="stage-dot"></span>{{ label('workflowStages', item.stage)
+                  }}<small>{{
+                  label('workflowStatuses', item.status)
                 }}</small>
               </td>
               <td>
                 <span class="priority" [class]="'priority ' + item.priority">{{
-                  priorities[item.priority]
+                  label('riskLevels', item.priority)
                 }}</span>
               </td>
               <td>
