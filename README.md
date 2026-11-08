@@ -12,24 +12,28 @@ Desde un checkout nuevo, crea los dos archivos locales y limita sus permisos:
 
 ```bash
 cp .env.example .env
-cp backend/.env.example backend/.env
-chmod 600 .env backend/.env
+cp server/.env.example server/.env
+chmod 600 .env server/.env
 ```
 
 El `.env` raíz contiene únicamente `MAPBOX_PUBLIC_TOKEN`, un token público `pk`
 propio de este proyecto. `npm start`, `npm run build`, `npm run watch` y
-`npm test` generan `src/app/core/config/public-env.generated.ts` desde una
+`npm test` y `npm run build:clean` generan `client/app/core/config/public-env.generated.ts` desde una
 allowlist de ese único campo. El token queda visible en el bundle y en las
 solicitudes del navegador: configura en Mapbox permisos mínimos, URLs permitidas,
 monitoreo y rotación. Después de cambiarlo, ejecuta `npm run generate:env`.
 Si invocas `ng` directamente, ejecuta antes ese mismo comando.
 
-`backend/.env` contiene `ConnectionStrings__Postgres` para la cuenta runtime de
-privilegios mínimos y `POSTGRES_DEPLOY_URL` para aplicar el esquema según
-[la guía de base de datos](backend/Database/README.md). `npm run backend` carga
-solo la conexión runtime en el proceso de la API; la credencial de despliegue no
-se le entrega. Las variables ya inyectadas en el proceso tienen precedencia sobre
-los archivos locales. `npm run db:apply` carga únicamente la conexión de
+`server/.env` contiene `ConnectionStrings__Postgres`, `ConnectionStrings__IdentityAdmin`
+y las claves HMAC de identidad. `npm run backend` carga esas variables y, si están
+presentes, `ConnectionStrings__Catalogs` y los orígenes indexados
+`Cors__AllowedOrigins__N`. Las variables ya inyectadas en el entorno tienen
+precedencia sobre el archivo. Otras opciones del servidor, como
+`DataProtection__KeyRingPath`, deben inyectarse en el entorno del proceso.
+
+`POSTGRES_DEPLOY_URL` se usa para aplicar el esquema según
+[la guía de base de datos](server/Database/README.md); `npm run backend` no
+entrega esa credencial al proceso de la API. `npm run db:apply` carga únicamente la conexión de
 despliegue y ejecuta `psql` sin colocarla en argumentos ni imprimirla; requiere
 que `psql` esté disponible en `PATH`.
 
@@ -38,7 +42,7 @@ separado: `npm run legacy -- analyze|import`. No forma parte del arranque de la 
 El procedimiento, la aprobación por huella y la reanudación del lote están en el
 [runbook de corte](docs/runbooks/postgresql-cutover.md).
 
-En producción, inyecta ambos valores con el gestor de secretos de la plataforma.
+En producción, inyecta las conexiones y claves privadas con el gestor de secretos de la plataforma.
 Los `.env` son solo una comodidad local: no se copian al artefacto ni sustituyen
 HTTPS, TLS de PostgreSQL, rotación, restricciones de red o un pool configurado
 para el proveedor.
@@ -57,7 +61,7 @@ npm run backend
 npm start
 ```
 
-Abre `http://localhost:4200`. El acceso requiere una cuenta aprovisionada y mantiene la sesión en una cookie HttpOnly; las mutaciones usan protección CSRF. La API usa PostgreSQL por defecto y obtiene la conexión desde `ConnectionStrings__Postgres`. Consulta [Aprovisionamiento de usuarios](backend/Auth/README.md) y [aplicación directa del esquema](backend/Database/README.md).
+Abre `http://localhost:4200`. El acceso requiere una cuenta aprovisionada y mantiene la sesión en una cookie HttpOnly; las mutaciones usan protección CSRF. La API usa PostgreSQL por defecto y obtiene la conexión desde `ConnectionStrings__Postgres`. Consulta [Aprovisionamiento de usuarios](server/Auth/README.md) y [aplicación directa del esquema](server/Database/README.md).
 
 En `Development`, la API publica Swagger UI en `http://localhost:5068/swagger` y el documento OpenAPI en `/swagger/v1/swagger.json`. Usa el flujo `GET /api/auth/csrf`, `POST /api/auth/login` y luego los endpoints protegidos. La UI conserva cookies del mismo origen y reenvía el token CSRF legible en las mutaciones `/api`; no incluye credenciales de ejemplo. Swagger responde 404 fuera de `Development`.
 
@@ -72,8 +76,10 @@ npm run test:env
 npm run build
 npm run build:clean
 npm test -- --watch=false
-dotnet build backend
-python3 backend-tests/test_note_phases.py
+dotnet build server/MineApp.sln
+npm run test:server
 ```
 
-`npm run build:clean` ejecuta el Angular CLI local con `ng build --configuration production` sin shell, reemite la salida del proceso hijo y falla solo si el build devuelve un warning Angular `▲ [WARNING]` o un presupuesto excedido `exceeded maximum budget`. El wrapper preserva el exit code del hijo para cualquier error distinto de esos dos patrones.
+La solución `server/MineApp.sln` agrupa la API, el importador y los proyectos auxiliares .NET de pruebas. `dotnet build server/MineApp.sln` compila los proyectos; la suite del servidor se ejecuta con `npm run test:server` porque los proyectos auxiliares son invocados por pruebas Python.
+
+`npm run build:clean` genera primero la configuración pública y ejecuta el Angular CLI local con `ng build --configuration production` sin shell, reemite la salida del proceso hijo y falla solo si el build devuelve un warning Angular `▲ [WARNING]` o un presupuesto excedido `exceeded maximum budget`. El wrapper preserva el exit code del hijo para cualquier error distinto de esos dos patrones.

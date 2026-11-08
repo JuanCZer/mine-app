@@ -46,10 +46,10 @@ usar la excepción temporal; el corte a Production permanece bloqueado. No cambi
 la cadena a `VerifyFull` para aparentar el control: primero habilite TLS en el
 servidor y repita la validación descrita en el reporte de política TLS.
 
-En la primera instalación, el rol de grupo todavía no existe. Un administrador copia el único archivo `backend/Database/apply.sql` al servidor, lo ejecuta una vez, concede la membresía al login de despliegue y comprueba que puede activarla. `POSTGRES_DEPLOY_LOGIN` contiene solo el nombre del rol PostgreSQL, no una cadena de conexión:
+En la primera instalación, el rol de grupo todavía no existe. Un administrador copia el único archivo `server/Database/apply.sql` al servidor, lo ejecuta una vez, concede la membresía al login de despliegue y comprueba que puede activarla. `POSTGRES_DEPLOY_LOGIN` contiene solo el nombre del rol PostgreSQL, no una cadena de conexión:
 
 ```bash
-psql "$POSTGRES_ADMIN_URL" --set ON_ERROR_STOP=on --file backend/Database/apply.sql
+psql "$POSTGRES_ADMIN_URL" --set ON_ERROR_STOP=on --file server/Database/apply.sql
 psql "$POSTGRES_ADMIN_URL" --set ON_ERROR_STOP=on --set deploy_login="$POSTGRES_DEPLOY_LOGIN" <<'SQL'
 GRANT gds_db_deployer TO :"deploy_login";
 BEGIN;
@@ -67,7 +67,7 @@ Con las escrituras aún habilitadas se puede hacer un ensayo preliminar. Para el
 
 ```bash
 install -m 0700 -d "$IMPORT_BACKUP_DIR"
-cp --preserve=all backend/Data/notes.json "$IMPORT_BACKUP_DIR/notes.json"
+cp --preserve=all server/Data/notes.json "$IMPORT_BACKUP_DIR/notes.json"
 shasum -a 256 "$IMPORT_BACKUP_DIR/notes.json" > "$IMPORT_BACKUP_DIR/notes.json.sha256"
 pg_dump --format=custom --file="$IMPORT_BACKUP_DIR/pre-cutover.dump" "$POSTGRES_ADMIN_URL"
 ```
@@ -84,7 +84,7 @@ Registrar por fuente:
 
 ## 3. Instalar y comprobar el esquema
 
-Copie `backend/Database/apply.sql` al servidor. Desde el directorio que contiene esa copia, ejecute:
+Copie `server/Database/apply.sql` al servidor. Desde el directorio que contiene esa copia, ejecute:
 
 ```bash
 psql "$POSTGRES_DEPLOY_URL" --set ON_ERROR_STOP=on --file apply.sql
@@ -105,7 +105,7 @@ Preparar dos objetos JSON protegidos:
 - `owners.json`: cada `legacy userId → UUID` de una cuenta custodio existente;
 - `timezones.json`: cada `sourceId → zona IANA`, o `"*"` solo cuando una única zona esté demostrada para toda la fuente.
 
-El análisis se ejecuta con el comando siguiente. `POSTGRES_DEPLOY_URL` se toma del entorno o de `backend/.env`, debe usar `sslmode=verify-full` y su login debe poder leer los catálogos. Para `--kind detection` acepta el sobre JSON del exportador (`schemaVersion: 1`), la copia exacta del almacén (`version: 1`) o el arreglo heredado.
+El análisis se ejecuta con el comando siguiente. `POSTGRES_DEPLOY_URL` se toma del entorno o de `server/.env`, debe usar `sslmode=verify-full` y su login debe poder leer los catálogos. Para `--kind detection` acepta el sobre JSON del exportador (`schemaVersion: 1`), la copia exacta del almacén (`version: 1`) o el arreglo heredado.
 
 ```bash
 npm run legacy -- analyze \
@@ -223,7 +223,7 @@ Ensayar restauración antes del corte:
 ```bash
 createdb "$POSTGRES_RESTORE_DATABASE"
 pg_restore --dbname="$POSTGRES_RESTORE_DATABASE" "$IMPORT_BACKUP_DIR/pre-cutover.dump"
-psql "$POSTGRES_RESTORE_URL" --set ON_ERROR_STOP=on --file backend/Database/apply.sql
+psql "$POSTGRES_RESTORE_URL" --set ON_ERROR_STOP=on --file server/Database/apply.sql
 ```
 
 Registrar tiempo de restauración, checksum del respaldo, conteos y resultado de lectura de una incidencia conocida.

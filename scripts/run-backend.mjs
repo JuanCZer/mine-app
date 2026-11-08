@@ -9,6 +9,7 @@ const defaultProjectRoot = path.resolve(path.dirname(modulePath), '..');
 const runtimeConnectionName = 'ConnectionStrings__Postgres';
 const identityAdminConnectionName = 'ConnectionStrings__IdentityAdmin';
 const rateLimitKeyEnvironmentPattern = /^IdentitySecurity__RateLimitHmacKeys__\d+__(?:KeyId|SecretBase64)$/;
+const optionalBackendFileSettingPattern = /^(?:ConnectionStrings__Catalogs|Cors__AllowedOrigins__\d+)$/;
 const forbiddenIdentitySelectors = new Set([
   'IdentitySecurity__CurrentKeyId',
   'IdentitySecurity__ActiveKeyId',
@@ -21,7 +22,7 @@ const deploymentConnectionNameLower = deploymentConnectionName.toLowerCase();
 
 async function readBackendEnvironment(projectRoot) {
   try {
-    return parseEnv(await readFile(path.join(projectRoot, 'backend/.env'), 'utf8'));
+    return parseEnv(await readFile(path.join(projectRoot, 'server/.env'), 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
@@ -64,7 +65,8 @@ export async function buildBackendEnvironment({
     throw new Error('Identity security configuration is invalid.');
   }
   for (const [key, value] of Object.entries(fileEnvironment)) {
-    if (rateLimitKeyEnvironmentPattern.test(key) && !Object.hasOwn(backendEnvironment, key)) {
+    if ((rateLimitKeyEnvironmentPattern.test(key) || optionalBackendFileSettingPattern.test(key))
+        && !Object.hasOwn(backendEnvironment, key)) {
       backendEnvironment[key] = value;
     }
   }
@@ -150,7 +152,7 @@ export async function runBackend({
   const backendEnvironment = await buildBackendEnvironment({ projectRoot, env, requireIdentitySecurity });
   return spawnWithSignals({
     command: 'dotnet',
-    args: ['run', '--project', 'backend'],
+    args: ['run', '--project', 'server/MineApp.Api.csproj'],
     options: {
       cwd: projectRoot,
       env: backendEnvironment,

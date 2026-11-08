@@ -87,7 +87,7 @@ Durante la consulta, `session_user` debe ser `gds_identity_login` y `current_rol
 
 ## 3. Configurar las conexiones en la Mac
 
-Copia a la Mac **solo el certificado público de la CA** y guarda su ruta. En `backend/.env`, configura la conexión de ejecución y la conexión aislada de identidad con el host incluido en el certificado:
+Copia a la Mac **solo el certificado público de la CA** y guarda su ruta. En `server/.env`, configura la conexión de ejecución y la conexión aislada de identidad con el host incluido en el certificado:
 
 ```dotenv
 ConnectionStrings__Postgres=Host=HOST_DEL_CERTIFICADO;Port=5432;Database=NOMBRE_BD;Username=USUARIO_RUNTIME;Password=SU_CONTRASEÑA;Ssl Mode=VerifyFull;Root Certificate=/ruta/en/tu/mac/ca.crt
@@ -98,14 +98,14 @@ ConnectionStrings__IdentityAdmin=Host=HOST_DEL_CERTIFICADO;Port=5432;Database=NO
 Usa los valores reales y conserva las contraseñas fuera del repositorio. No uses `Trust Server Certificate=true`: el proyecto lo rechaza. Restringe los permisos del archivo:
 
 ```bash
-chmod 600 backend/.env
+chmod 600 server/.env
 ```
 
 Si también utilizas `POSTGRES_DEPLOY_URL`, configúrala para verificar el certificado del servidor con `sslmode=verify-full` y, cuando corresponda, `sslrootcert`. La conexión de despliegue es administrativa y no debe usarse como conexión runtime de la API.
 
 ## 4. Configurar el secreto HMAC
 
-PostgreSQL guarda el identificador de la clave activa, pero no el secreto. En `backend/.env` configura:
+PostgreSQL guarda el identificador de la clave activa, pero no el secreto. En `server/.env` configura:
 
 ```dotenv
 IdentitySecurity__RateLimitHmacKeys__0__KeyId=rate-limit-v1

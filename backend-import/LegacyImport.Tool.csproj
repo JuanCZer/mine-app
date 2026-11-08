@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../backend/Notes.Api.csproj" />
+    <ProjectReference Include="../server/MineApp.Api.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
 </Project>

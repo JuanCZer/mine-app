@@ -8,7 +8,7 @@ Los catálogos de Objetivo 2 siguen siendo la fuente canónica. Las FK compuesta
 
 ## Archivo único y orden
 
-`backend/Database/apply.sql` es el único SQL entregable y la fuente de verdad del esquema. Es SQL autocontenido, no contiene comandos especiales de `psql` ni depende de rutas del repositorio, por lo que puede copiarse directamente al servidor y ejecutarse también desde pgAdmin. Una sola transacción instala o reaplica el contrato actual y revierte todo el lote si una comprobación detecta una estructura preexistente incompatible. No se usan migraciones EF.
+`server/Database/apply.sql` es el único SQL entregable y la fuente de verdad del esquema. Es SQL autocontenido, no contiene comandos especiales de `psql` ni depende de rutas del repositorio, por lo que puede copiarse directamente al servidor y ejecutarse también desde pgAdmin. Una sola transacción instala o reaplica el contrato actual y revierte todo el lote si una comprobación detecta una estructura preexistente incompatible. No se usan migraciones EF.
 
 Sus secciones están incluidas físicamente en este orden:
 
@@ -26,7 +26,7 @@ Sus secciones están incluidas físicamente en este orden:
 Desde el repositorio:
 
 ```sh
-psql "$POSTGRES_DEPLOY_URL" --set ON_ERROR_STOP=on -f backend/Database/apply.sql
+psql "$POSTGRES_DEPLOY_URL" --set ON_ERROR_STOP=on -f server/Database/apply.sql
 ```
 
 Si el archivo ya fue copiado al servidor, ejecute `psql "$POSTGRES_DEPLOY_URL" --set ON_ERROR_STOP=on -f apply.sql`. Todo cambio de estructura, restricción, índice, función, trigger, semilla o comprobación se edita directamente en este archivo; la aplicación no modifica el esquema durante el arranque.
@@ -84,7 +84,7 @@ La última sección de `apply.sql` muestra conteos por lote, importados sin corr
 La penúltima sección de `apply.sql` comprueba tablas, etapas, triggers y cardinalidad. La segunda ejecución del archivo no duplica catálogos ni roles. Para generar la huella revisable de esta entrega:
 
 ```sh
-shasum -a 256 backend/Database/apply.sql
+shasum -a 256 server/Database/apply.sql
 ```
 
-No había una instancia PostgreSQL ni `psql` disponible al preparar este archivo, por lo que aún falta ejecutar instalación limpia, segunda ejecución, fallos de constraints y conciliación contra una base aislada. `backend/Database/apply.sql` es la fuente final de verdad, incluidas las tablas compatibles con Identity. La activación de usuarios, roles de aplicación y permisos HTTP pertenece al Objetivo 4.
+No había una instancia PostgreSQL ni `psql` disponible al preparar este archivo, por lo que aún falta ejecutar instalación limpia, segunda ejecución, fallos de constraints y conciliación contra una base aislada. `server/Database/apply.sql` es la fuente final de verdad, incluidas las tablas compatibles con Identity. La activación de usuarios, roles de aplicación y permisos HTTP pertenece al Objetivo 4.

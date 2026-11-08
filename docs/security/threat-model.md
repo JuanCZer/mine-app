@@ -22,12 +22,12 @@ flowchart LR
 
 | Componente | Función | Evidencia |
 | --- | --- | --- |
-| Angular | Login, captura de cuatro fases, historial y mapa | `src/app/app.config.ts:12-19`, `src/app/app.routes.ts:4-39` |
-| API | Autenticación, autorización, catálogos e incidencias | `backend/Program.cs:8-119` |
-| Sesión | Cookie, sello, roles, CSRF y rate limiting | `backend/Auth/SessionAuthentication.cs:18-86` |
-| Persistencia | Ownership, concurrencia, fases, evento y auditoría transaccional | `backend/Data/PostgresNoteRepository.cs:21-220` |
-| PostgreSQL | Integridad, inmutabilidad, roles y privilegios | `backend/Database/apply.sql:720-999`, `backend/Database/apply.sql:1152-1211` |
-| Importador | Análisis, aprobación por huella, cuarentena y carga | `backend/Import/LegacyImportCommand.cs:43-157`, `backend/Import/PostgresLegacyImportSink.cs:27-239` |
+| Angular | Login, captura de cuatro fases, historial y mapa | `client/app/app.config.ts:12-19`, `client/app/app.routes.ts:4-39` |
+| API | Autenticación, autorización, catálogos e incidencias | `server/Program.cs:8-119` |
+| Sesión | Cookie, sello, roles, CSRF y rate limiting | `server/Auth/SessionAuthentication.cs:18-86` |
+| Persistencia | Ownership, concurrencia, fases, evento y auditoría transaccional | `server/Data/PostgresNoteRepository.cs:21-220` |
+| PostgreSQL | Integridad, inmutabilidad, roles y privilegios | `server/Database/apply.sql:720-999`, `server/Database/apply.sql:1152-1211` |
+| Importador | Análisis, aprobación por huella, cuarentena y carga | `server/Import/LegacyImportCommand.cs:43-157`, `server/Import/PostgresLegacyImportSink.cs:27-239` |
 
 Los recursos sensibles y su valor efectivo son:
 

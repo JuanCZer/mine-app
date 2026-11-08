@@ -54,7 +54,7 @@ Los estados mexicanos usan códigos sin acentos (`michoacan`) y etiquetas con or
 
 ## Operación y límites de esta entrega
 
-Ejecutar el único archivo autocontenido `backend/Database/apply.sql` con una identidad autorizada para crear el esquema `app`. Sus secciones 2 y 7 crean y siembran los catálogos. La aplicación recibe la conexión mediante `ConnectionStrings__Catalogs`; no hay credenciales en el archivo. Las semillas son repetibles y no reactivan opciones retiradas: el `ON CONFLICT` actualiza etiqueta, orden y alcance, pero conserva `is_active`.
+Ejecutar el único archivo autocontenido `server/Database/apply.sql` con una identidad autorizada para crear el esquema `app`. Sus secciones 2 y 7 crean y siembran los catálogos. La aplicación recibe la conexión mediante `ConnectionStrings__Catalogs`; no hay credenciales en el archivo. Las semillas son repetibles y no reactivan opciones retiradas: el `ON CONFLICT` actualiza etiqueta, orden y alcance, pero conserva `is_active`.
 
 Las altas y modificaciones posteriores de opciones generan un registro append-only en `app.audit_events` con valores `before`/`after`, versión y rol de base de datos. Una operación administrativa puede atribuir además una cuenta de aplicación existente dentro de la misma transacción:
 

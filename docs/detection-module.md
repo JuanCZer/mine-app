@@ -36,7 +36,7 @@ Cada valor `owner` es texto declarado y debe relacionarse de forma explícita co
 ```bash
 npm test -- --watch=false
 npm run build
-python3 -m unittest backend-tests/test_legacy_import.py -v
+python3 -m unittest discover -s server/tests -p 'test_legacy_import.py' -v
 ```
 
-Las pruebas comprueban que el servicio retirado no lee ni modifica el archivo, que el logout lo conserva, que las rutas ya no cargan el panel y que ambos sobres versionados pueden analizarse sin perder los registros originales.
+Las pruebas comprueban que el cierre de sesión y el cambio de cuenta conservan el archivo, que las rutas ya no cargan el panel retirado y que ambos sobres versionados pueden analizarse sin perder los registros originales.

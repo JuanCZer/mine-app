@@ -32,14 +32,14 @@ afterEach(async () => {
 async function createProjectFixture() {
   const projectRoot = await mkdtemp(path.join(tmpdir(), 'mine-app-environment-'));
   temporaryDirectories.push(projectRoot);
-  await mkdir(path.join(projectRoot, 'src/app/core/config'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'backend'), { recursive: true });
+  await mkdir(path.join(projectRoot, 'client/app/core/config'), { recursive: true });
+  await mkdir(path.join(projectRoot, 'server'), { recursive: true });
   return projectRoot;
 }
 
 async function generatedToken(projectRoot) {
   const source = await readFile(
-    path.join(projectRoot, 'src/app/core/config/public-env.generated.ts'),
+    path.join(projectRoot, 'client/app/core/config/public-env.generated.ts'),
     'utf8',
   );
   const match = source.match(/mapboxPublicToken: (.+),$/m);
@@ -229,7 +229,7 @@ test('generatedConfigReplacesSymlinkWithoutModifyingExternalTarget', async () =>
   const externalDirectory = await mkdtemp(path.join(tmpdir(), 'mine-app-external-'));
   temporaryDirectories.push(externalDirectory);
   const externalTarget = path.join(externalDirectory, 'external-target.ts');
-  const destination = path.join(projectRoot, 'src/app/core/config/public-env.generated.ts');
+  const destination = path.join(projectRoot, 'client/app/core/config/public-env.generated.ts');
   await writeFile(externalTarget, 'external target must remain unchanged\n');
   await symlink(externalTarget, destination);
   const { generatePublicConfig } = await loadGenerator();
@@ -251,7 +251,7 @@ test('generatedConfigReplacesHardLinkWithoutModifyingExternalTarget', async () =
   const externalDirectory = await mkdtemp(path.join(tmpdir(), 'mine-app-external-'));
   temporaryDirectories.push(externalDirectory);
   const externalTarget = path.join(externalDirectory, 'external-target.ts');
-  const destination = path.join(projectRoot, 'src/app/core/config/public-env.generated.ts');
+  const destination = path.join(projectRoot, 'client/app/core/config/public-env.generated.ts');
   await writeFile(externalTarget, 'external hard-link target must remain unchanged\n');
   await link(externalTarget, destination);
   const { generatePublicConfig } = await loadGenerator();
@@ -273,7 +273,7 @@ test('generatedConfigReplacesHardLinkWithoutModifyingExternalTarget', async () =
 
 test('failedGeneratedConfigReplacementCleansTemporaryFile', async () => {
   const projectRoot = await createProjectFixture();
-  const configDirectory = path.join(projectRoot, 'src/app/core/config');
+  const configDirectory = path.join(projectRoot, 'client/app/core/config');
   const destination = path.join(configDirectory, 'public-env.generated.ts');
   await mkdir(destination);
   const { generatePublicConfig } = await loadGenerator();
@@ -290,7 +290,7 @@ test('failedGeneratedConfigReplacementCleansTemporaryFile', async () => {
 
 test('repeatedGenerationProducesIdenticalContents', async () => {
   const projectRoot = await createProjectFixture();
-  const destination = path.join(projectRoot, 'src/app/core/config/public-env.generated.ts');
+  const destination = path.join(projectRoot, 'client/app/core/config/public-env.generated.ts');
   const { generatePublicConfig } = await loadGenerator();
   const options = {
     projectRoot,
@@ -318,7 +318,7 @@ test('backendConnectionPreservesSpacesAndSpecialCharacters', async () => {
   const projectRoot = await createProjectFixture();
   const { buildBackendEnvironment } = await loadBackendRunner();
   await writeFile(
-    path.join(projectRoot, 'backend/.env'),
+    path.join(projectRoot, 'server/.env'),
     'ConnectionStrings__Postgres="Host=db;Password=value with spaces # and &;SSL Mode=Require"\n',
   );
 
@@ -334,7 +334,7 @@ test('injectedBackendConnectionWins', async () => {
   const projectRoot = await createProjectFixture();
   const { buildBackendEnvironment } = await loadBackendRunner();
   await writeFile(
-    path.join(projectRoot, 'backend/.env'),
+    path.join(projectRoot, 'server/.env'),
     'ConnectionStrings__Postgres=synthetic-file-connection\n',
   );
 
@@ -344,6 +344,47 @@ test('injectedBackendConnectionWins', async () => {
   });
 
   assert.equal(result.ConnectionStrings__Postgres, 'synthetic-injected-connection');
+});
+
+test('backendLoadsCatalogAndIndexedCorsSettingsFromServerEnvironment', async () => {
+  const projectRoot = await createProjectFixture();
+  const { buildBackendEnvironment } = await loadBackendRunner();
+  await writeFile(path.join(projectRoot, 'server/.env'), [
+    'ConnectionStrings__Postgres=runtime',
+    'ConnectionStrings__Catalogs=catalogs-from-file',
+    'Cors__AllowedOrigins__0=https://first.example',
+    'Cors__AllowedOrigins__1=https://second.example',
+    'Cors__AllowedOrigins__extra=https://unexpected.example',
+    'UNEXPECTED_FILE_SETTING=unexpected',
+  ].join('\n'));
+
+  const result = await buildBackendEnvironment({ projectRoot, env: {} });
+
+  assert.equal(result.ConnectionStrings__Catalogs, 'catalogs-from-file');
+  assert.equal(result.Cors__AllowedOrigins__0, 'https://first.example');
+  assert.equal(result.Cors__AllowedOrigins__1, 'https://second.example');
+  assert.equal('Cors__AllowedOrigins__extra' in result, false);
+  assert.equal('UNEXPECTED_FILE_SETTING' in result, false);
+});
+
+test('injectedCatalogAndCorsSettingsOverrideServerEnvironmentIndividually', async () => {
+  const projectRoot = await createProjectFixture();
+  const { buildBackendEnvironment } = await loadBackendRunner();
+  await writeFile(path.join(projectRoot, 'server/.env'), [
+    'ConnectionStrings__Postgres=runtime',
+    'ConnectionStrings__Catalogs=catalogs-from-file',
+    'Cors__AllowedOrigins__0=https://file.example',
+    'Cors__AllowedOrigins__1=https://second.example',
+  ].join('\n'));
+
+  const result = await buildBackendEnvironment({ projectRoot, env: {
+    ConnectionStrings__Catalogs: 'catalogs-from-env',
+    Cors__AllowedOrigins__0: 'https://injected.example',
+  } });
+
+  assert.equal(result.ConnectionStrings__Catalogs, 'catalogs-from-env');
+  assert.equal(result.Cors__AllowedOrigins__0, 'https://injected.example');
+  assert.equal(result.Cors__AllowedOrigins__1, 'https://second.example');
 });
 
 test('rootEnvironmentIsNeverReadByBackendLoader', async () => {
@@ -364,7 +405,7 @@ test('deploymentCredentialNeverReachesBackendChildEnvironment', async () => {
   const projectRoot = await createProjectFixture();
   const { buildBackendEnvironment } = await loadBackendRunner();
   await writeFile(
-    path.join(projectRoot, 'backend/.env'),
+    path.join(projectRoot, 'server/.env'),
     [
       'ConnectionStrings__Postgres=synthetic-runtime-connection',
       'POSTGRES_DEPLOY_URL=synthetic-file-deploy-credential',
@@ -419,7 +460,7 @@ test('backendRunnerUsesArgumentArrayWithoutLoggingSecrets', async () => {
   assert.deepEqual(await completion, { code: 0, signal: null });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, 'dotnet');
-  assert.deepEqual(calls[0].args, ['run', '--project', 'backend']);
+  assert.deepEqual(calls[0].args, ['run', '--project', 'server/MineApp.Api.csproj']);
   assert.equal(calls[0].options.cwd, projectRoot);
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.stdio, 'inherit');
@@ -574,7 +615,7 @@ test('injectedDeploymentConnectionWinsWithoutReadingRootEnvironment', async () =
     'POSTGRES_DEPLOY_URL=synthetic-root-deploy-connection\n',
   );
   await writeFile(
-    path.join(projectRoot, 'backend/.env'),
+    path.join(projectRoot, 'server/.env'),
     'POSTGRES_DEPLOY_URL=synthetic-file-deploy-connection\n',
   );
 
@@ -653,8 +694,8 @@ test('databaseDeploymentRemovesConflictingConnectionEnvironmentCaseInsensitively
 test('databaseDeploymentUsesEnvironmentInsteadOfArgumentsOrLogs', async () => {
   const projectRoot = await createProjectFixture();
   const { runDatabaseDeployment } = await loadDatabaseDeployment();
-  await mkdir(path.join(projectRoot, 'backend/Database'), { recursive: true });
-  await writeFile(path.join(projectRoot, 'backend/Database/apply.sql'), 'select 1;\n');
+  await mkdir(path.join(projectRoot, 'server/Database'), { recursive: true });
+  await writeFile(path.join(projectRoot, 'server/Database/apply.sql'), 'select 1;\n');
   const child = new EventEmitter();
   child.kill = () => true;
   const calls = [];
@@ -683,7 +724,7 @@ test('databaseDeploymentUsesEnvironmentInsteadOfArgumentsOrLogs', async () => {
     '--set',
     'ON_ERROR_STOP=on',
     '--file',
-    path.join(projectRoot, 'backend/Database/apply.sql'),
+    path.join(projectRoot, 'server/Database/apply.sql'),
   ]);
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.stdio, 'inherit');

@@ -38,7 +38,7 @@ La evidencia local de referencia está en la [matriz de controles](control-matri
 
 - [ ] Habilitar TLS y reglas `hostssl`; impedir sesiones en claro para roles y redes de aplicación/despliegue.
 - [ ] Validar CA, vigencia y SAN con el nombre usado por el backend; demostrar Npgsql y `psql` con verificación completa y `pg_stat_ssl.ssl=true`.
-- [ ] Ejecutar [apply.sql](../../backend/Database/apply.sql) con la cuenta de despliegue en una base aislada limpia y aplicarlo una segunda vez sin errores ni pérdida de datos.
+- [ ] Ejecutar [apply.sql](../../server/Database/apply.sql) con la cuenta de despliegue en una base aislada limpia y aplicarlo una segunda vez sin errores ni pérdida de datos.
 - [ ] Verificar privilegios mínimos de los roles runtime y despliegue; runtime no debe modificar identidad administrativa ni eventos auditables existentes.
 - [ ] Ejecutar backup y restore; registrar checksum, duración, lectura posterior, RPO/RTO y responsable de custodia.
 - [ ] Completar importación, cuarentena y conciliación; no debe quedar un lote pendiente, rechazado o con conciliación requerida antes del corte.

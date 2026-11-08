@@ -59,8 +59,8 @@ Son validaciones documentales de integridad y secuencia. La información de sens
 ```bash
 npm run build
 npm test -- --watch=false
-dotnet build backend
-python3 backend-tests/test_note_phases.py
+dotnet build server/MineApp.sln
+python3 -m unittest discover -s server/tests -p test_note_phases.py
 ```
 
 Las pruebas de la API levantan su propio servidor con puerto y archivo temporales, sin alterar las incidencias de trabajo. Cubren las cuatro fases, saltos por peticiones directas, borradores, requisitos, falsos positivos, concurrencia, edición de fases validadas y compatibilidad con incidencias anteriores.

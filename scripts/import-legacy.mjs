@@ -12,7 +12,7 @@ const deploymentName = 'POSTGRES_DEPLOY_URL';
 async function deploymentEnvironment(env = process.env) {
   let fileEnvironment = {};
   try {
-    fileEnvironment = parseEnv(await readFile(path.join(projectRoot, 'backend/.env'), 'utf8'));
+    fileEnvironment = parseEnv(await readFile(path.join(projectRoot, 'server/.env'), 'utf8'));
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }

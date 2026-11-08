@@ -24,7 +24,7 @@ function isConnectionVariable(name) {
 
 async function readBackendEnvironment(projectRoot) {
   try {
-    return parseEnv(await readFile(path.join(projectRoot, 'backend/.env'), 'utf8'));
+    return parseEnv(await readFile(path.join(projectRoot, 'server/.env'), 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {};
@@ -96,7 +96,7 @@ export async function runDatabaseDeployment({
       '--set',
       'ON_ERROR_STOP=on',
       '--file',
-      path.join(projectRoot, 'backend/Database/apply.sql'),
+      path.join(projectRoot, 'server/Database/apply.sql'),
     ],
     options: {
       cwd: projectRoot,

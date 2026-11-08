@@ -14,13 +14,13 @@
         }
       },
       "root": "",
-      "sourceRoot": "src",
+      "sourceRoot": "client",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "src/main.ts",
+            "browser": "client/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "less",
             "assets": [
@@ -30,7 +30,7 @@
               }
             ],
             "styles": [
-              "src/styles.less"
+              "client/styles.less"
             ],
             "allowedCommonJsDependencies": [
               "mapbox-gl"
