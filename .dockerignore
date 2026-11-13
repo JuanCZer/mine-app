@@ -1,0 +1,27 @@
+# Credenciales, datos locales y archivos de operadores
+.env
+.env.*
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.p12
+server/Data/notes.json
+
+# Artefactos regenerables y control de versiones
+.git
+.github
+node_modules
+**/node_modules
+.angular
+dist
+tmp
+**/bin
+**/obj
+**/__pycache__
+coverage
+.superpowers
+
+# Configuración generada durante la compilación de Angular
+client/app/core/config/public-env.generated.ts

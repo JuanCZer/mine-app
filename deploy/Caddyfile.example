@@ -1,0 +1,9 @@
+# Adaptar el dominio y añadir este bloque al Caddy del host.
+# Este ejemplo supone que Caddy recibe la conexión directamente del cliente.
+app.glenorchydev.com {
+    reverse_proxy 127.0.0.1:8080 {
+        # Sustituir, no aceptar, valores X-Forwarded-* enviados por el cliente.
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}

@@ -1,0 +1,109 @@
+name: Desplegar en servidor privado
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: Rama release/* que apunta al commit actual de main
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mineapp-production
+  cancel-in-progress: false
+
+jobs:
+  validate_release:
+    # Desactivado hasta crear la variable de repositorio con valor true.
+    if: vars.ENABLE_PRODUCTION_DEPLOY == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Descargar referencias de main y release
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verificar prefijo y coincidencia con main
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: |
+          set -euo pipefail
+          release_sha=$(node scripts/verify-release-main.mjs "$RELEASE_BRANCH")
+          test "$release_sha" = "$GITHUB_SHA" || { echo 'main cambió desde el inicio; vuelve a iniciar el despliegue.' >&2; exit 1; }
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: validate_release
+    uses: ./.github/workflows/ci.yml
+    with:
+      source_ref: ${{ needs.validate_release.outputs.release_sha }}
+
+  deploy:
+    needs: [validate_release, verify]
+    runs-on: [self-hosted, linux, mineapp-deploy]
+    environment: production
+    timeout-minutes: 30
+    env:
+      MAPBOX_PUBLIC_TOKEN: ${{ vars.MAPBOX_PUBLIC_TOKEN }}
+      MINE_APP_ENV_FILE: /opt/mine-app/runtime.env
+      MINE_APP_PORT: '8080'
+      MINE_APP_CERT_DIR: /opt/mine-app/certs
+      MINE_APP_PROXY_NETWORK: ${{ vars.MINE_APP_PROXY_NETWORK || 'mineapp_proxy' }}
+      MINE_APP_CADDY_PROXY_IP: ${{ vars.MINE_APP_CADDY_PROXY_IP }}
+      MINE_APP_IMAGE_TAG: ${{ needs.validate_release.outputs.release_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Descargar revisión verificada
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ needs.validate_release.outputs.release_sha }}
+          persist-credentials: false
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Verificar configuración local
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -r "$MINE_APP_ENV_FILE" || { echo 'No se puede leer el archivo de configuración del servidor.' >&2; exit 1; }
+          if grep -iqE '^[[:space:]]*(export[[:space:]]+)?POSTGRES_DEPLOY_URL[[:space:]]*=' "$MINE_APP_ENV_FILE"; then
+            echo 'El archivo de runtime no debe contener POSTGRES_DEPLOY_URL.' >&2
+            exit 1
+          fi
+          test -n "$MINE_APP_CADDY_PROXY_IP" || { echo 'Falta la IP verificada del proxy Caddy.' >&2; exit 1; }
+          test -d "$MINE_APP_CERT_DIR" || { echo 'Falta el directorio de certificados del servidor.' >&2; exit 1; }
+          [[ "$MAPBOX_PUBLIC_TOKEN" =~ ^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]] || { echo 'Configura una variable pública de Mapbox válida.' >&2; exit 1; }
+          engine_version=$(docker version --format '{{.Server.Version}}')
+          if [[ ! "$engine_version" =~ ^([0-9]+)\. ]] || (( 10#${BASH_REMATCH[1]} < 28 )); then
+            echo 'Se requiere Docker Engine 28 o posterior para la publicación en loopback.' >&2
+            exit 1
+          fi
+          docker compose version
+          docker network inspect "$MINE_APP_PROXY_NETWORK" >/dev/null || { echo 'No existe la red Docker configurada.' >&2; exit 1; }
+          docker compose config --quiet
+      - name: Construir imagen web de la revisión
+        run: docker compose build --pull
+      - name: Confirmar referencias antes de actualizar el contenedor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_GRAPHQL_URL: ${{ github.graphql_url }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          EXPECTED_RELEASE_SHA: ${{ needs.validate_release.outputs.release_sha }}
+        run: node scripts/verify-release-remote.mjs
+      - name: Iniciar contenedor web
+        run: docker compose up -d --no-build --wait --wait-timeout 60
+      - name: Comprobar disponibilidad de identidad
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 10 --retry-delay 3 --retry-all-errors \
+            --max-time 5 http://127.0.0.1:8080/api/health >/dev/null

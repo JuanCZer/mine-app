@@ -1,0 +1,11 @@
+# Opcional: solo cuando PostgreSQL esté en una red Docker ya existente.
+# Aplicar junto con compose.yaml y definir MINE_APP_DATABASE_NETWORK.
+services:
+  web:
+    networks:
+      - proxy
+      - database
+networks:
+  database:
+    external: true
+    name: ${MINE_APP_DATABASE_NETWORK:?Indica el nombre de la red Docker existente de PostgreSQL}

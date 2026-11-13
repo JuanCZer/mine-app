@@ -121,6 +121,12 @@ var dataSources = app.Services.GetRequiredService<PostgresDataSources>();
 _ = IdentitySecurityStartupValidator.Validate(builder.Configuration, dataSources);
 app.UseHttpSecurity();
 app.UseCors();
+var serveSpa = app.Configuration.GetValue<bool>("Spa:Enabled");
+if (serveSpa)
+{
+    app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api")
+        && !context.Request.Path.StartsWithSegments("/swagger"), branch => branch.UseStaticFiles());
+}
 // Keep infrastructure details, connection strings and credential material out of HTTP responses.
 app.Use(async (context, next) => {
     if (context.Request.Path.StartsWithSegments("/api/auth")
@@ -213,6 +219,22 @@ notes.MapPost("/{id}/phases/{stage}/validate", async (string id, string stage, V
     var note = await store.ValidatePhase(CurrentUser.GetRequiredId(context.User).ToString(), id, stage, request, context.RequestAborted);
     return note is null ? Results.NotFound() : Results.Ok(note);
 }).RequireAuthorization("CanValidatePhase");
+if (serveSpa)
+{
+    // API and Swagger misses must never be treated as client-side routes.
+    app.MapFallback("/api/{**path}", () => Results.NotFound()).RequireAuthorization();
+    app.MapFallback("/swagger/{**path}", () => Results.NotFound()).AllowAnonymous();
+    app.MapFallback((HttpContext context) =>
+    {
+        if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+        {
+            context.Response.Headers.Allow = "GET, HEAD";
+            return Results.StatusCode(StatusCodes.Status405MethodNotAllowed);
+        }
+        var index = Path.Combine(context.RequestServices.GetRequiredService<IWebHostEnvironment>().WebRootPath ?? string.Empty, "index.html");
+        return File.Exists(index) ? TypedResults.PhysicalFile(index, "text/html") : Results.NotFound();
+    }).AllowAnonymous();
+}
 app.Run();
 
 static string? Invalid(NoteInput input) { if (string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 120) return "El identificador de la incidencia es obligatorio y admite hasta 120 caracteres."; if (string.IsNullOrWhiteSpace(input.Content) || input.Content.Length > 10000) return "La descripción del indicio es obligatoria y admite hasta 10000 caracteres."; if (string.IsNullOrWhiteSpace(input.State) || input.State.Length > 100) return "El área o corredor de interés es obligatorio y admite hasta 100 caracteres."; if (input.Altitude is null || !double.IsFinite(input.Altitude.Value) || Math.Abs(input.Altitude.Value) > 90) return "La latitud debe estar entre -90 y 90."; if (input.Longitude is null || !double.IsFinite(input.Longitude.Value) || Math.Abs(input.Longitude.Value) > 180) return "La longitud debe estar entre -180 y 180."; return null; }

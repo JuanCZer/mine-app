@@ -83,3 +83,13 @@ npm run test:server
 La solución `server/MineApp.sln` agrupa la API, el importador y los proyectos auxiliares .NET de pruebas. `dotnet build server/MineApp.sln` compila los proyectos; la suite del servidor se ejecuta con `npm run test:server` porque los proyectos auxiliares son invocados por pruebas Python.
 
 `npm run build:clean` genera primero la configuración pública y ejecuta el Angular CLI local con `ng build --configuration production` sin shell, reemite la salida del proceso hijo y falla solo si el build devuelve un warning Angular `▲ [WARNING]` o un presupuesto excedido `exceeded maximum budget`. El wrapper preserva el exit code del hijo para cualquier error distinto de esos dos patrones.
+
+## Docker y despliegue privado
+
+La preparación de Docker Compose y GitHub Actions para ejecutar el frontend y la API en un mismo contenedor web se describe en [la guía de despliegue privado](docs/runbooks/docker-github-actions.md). La ejecución en producción requiere un proxy HTTPS, configuración privada y PostgreSQL con TLS verificable.
+
+El flujo propuesto para proteger `main`, integrar PR y desplegar ramas `release/*` está documentado en [integración y release](docs/runbooks/github-flujo-main-release.md). La plantilla de protección y las automatizaciones de integración y producción se dejan desactivadas inicialmente.
+
+## Despliegue provisional
+
+La pipeline provisional y su preparación para el servidor privado se describen en [deploy/provisional/README.md](deploy/provisional/README.md). Los workflows de producción e integración futura están conservados como plantillas inactivas en `deploy/futuro/workflows/`.

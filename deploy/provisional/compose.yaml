@@ -1,0 +1,29 @@
+# Proyecto independiente para desarrollo; el puerto y rutas se definen en el servidor.
+name: mineapp-dev
+services:
+  web:
+    image: mineapp-dev-web:${MINE_APP_IMAGE_TAG:?Define la etiqueta de imagen}
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:?Define el token público de Mapbox}
+    env_file:
+      - path: ${MINE_APP_ENV_FILE:?Define la ruta absoluta de runtime.env}
+        format: raw
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DataProtection__KeyRingPath: /var/lib/mine-app/keys
+      Spa__Enabled: 'true'
+      HttpSecurity__KnownProxies__0: ${MINE_APP_CADDY_PROXY_IP:?Define la IP de Caddy visible desde el contenedor}
+    ports:
+      - '127.0.0.1:${MINE_APP_PORT:?Define el puerto local}:8080'
+    volumes:
+      - identity_keys:/var/lib/mine-app/keys
+      - ${MINE_APP_CERT_DIR:?Define la ruta absoluta de certificados}:/etc/mine-app/certs:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  identity_keys:

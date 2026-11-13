@@ -1,0 +1,36 @@
+name: mineapp
+services:
+  web:
+    image: mineapp-web:${MINE_APP_IMAGE_TAG:?Indica MINE_APP_IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        MAPBOX_PUBLIC_TOKEN: ${MAPBOX_PUBLIC_TOKEN:?Indica el token público de Mapbox}
+    env_file:
+      - path: ${MINE_APP_ENV_FILE:?Indica la ruta absoluta del archivo de configuración del servidor}
+        format: raw
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DataProtection__KeyRingPath: /var/lib/mine-app/keys
+      Spa__Enabled: 'true'
+      HttpSecurity__KnownProxies__0: ${MINE_APP_CADDY_PROXY_IP:?Indica la IP comprobada de Caddy vista por el contenedor}
+    networks:
+      - proxy
+    ports:
+      - "127.0.0.1:${MINE_APP_PORT:-8080}:8080"
+    volumes:
+      - identity_keys:/var/lib/mine-app/keys
+      - ${MINE_APP_CERT_DIR:-/opt/mine-app/certs}:/etc/mine-app/certs:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  identity_keys:
+
+networks:
+  proxy:
+    external: true
+    name: ${MINE_APP_PROXY_NETWORK:?Indica la red Docker existente del contenedor web}

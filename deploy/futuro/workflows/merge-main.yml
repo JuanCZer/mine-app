@@ -1,0 +1,43 @@
+name: Integrar PR aprobado en main
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  auto-merge:
+    # Ambas variables de repositorio están ausentes por defecto: no se fusiona nada.
+    if: >-
+      vars.ENABLE_MAIN_AUTO_MERGE == 'true' &&
+      vars.MAIN_POLICY_NO_BYPASS_CONFIRMED == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Se descarga exclusivamente la base de main, jamás el código del PR.
+      - name: Descargar política confiable de main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Comprobar reglas activas y solicitar auto-merge nativo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          gh api --paginate --slurp "repos/$GH_REPO/rules/branches/main?per_page=100" | node scripts/verify-main-rules.mjs
+          # GitHub espera la revisión y los checks obligatorios antes de integrar.
+          gh pr merge "$PR_NUMBER" --auto --merge --match-head-commit "$HEAD_SHA" --repo "$GH_REPO"
