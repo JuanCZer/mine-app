@@ -25,5 +25,15 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    networks:
+      - proxy
+      - backend
+networks:
+  proxy:
+    external: true
+    name: ${MINE_APP_PROXY_NETWORK:?Define la red Docker existente del contenedor web}
+  backend:
+    external: true
+    name: backend
 volumes:
   identity_keys:
