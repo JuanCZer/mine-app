@@ -11,7 +11,7 @@ La evidencia local de referencia está en la [matriz de controles](control-matri
 - El PostgreSQL inspeccionado no ofrece TLS; Production debe permanecer bloqueado hasta demostrar `VerifyFull`.
 - No existe todavía un reporte aprobado de integración completa contra PostgreSQL real.
 - El blob heredado del navegador debe conciliarse o eliminarse con aprobación en cada perfil.
-- La CSP completa sigue en Report-Only.
+- La CSP completa aún no se aplica; su modo Report-Only requiere activación explícita y un receptor de reportes configurado.
 - Faltan decisiones operativas sobre MFA, auditoría de rechazos de autorización, keyring compartido, SIEM y retención.
 - El escaneo estándar `d0331dac-f35b-4f37-9ae2-89c13a9be54d` terminó con cobertura completa; su único hallazgo medio fue corregido localmente. La liberación debe adjuntar el reporte y la evidencia de la corrección.
 

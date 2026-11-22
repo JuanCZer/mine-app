@@ -436,7 +436,7 @@ switch (scenario)
         Check(hardened.Headers.GetValues("Content-Security-Policy").Single().Contains("frame-ancestors 'none'"),"enforced frame-ancestors");
         Check(hardened.Headers.GetValues("Referrer-Policy").Single()=="strict-origin-when-cross-origin","referrer policy");
         Check(hardened.Headers.GetValues("Permissions-Policy").Single().Contains("camera=()"),"permissions policy");
-        Check(hardened.Headers.GetValues("Content-Security-Policy-Report-Only").Single().Contains("default-src 'self'"),"report-only application CSP");
+        Check(!hardened.Headers.Contains("Content-Security-Policy-Report-Only"),"report-only CSP stays opt-in until a reporting destination is configured");
         var shouldHaveHsts=scenario=="headers-production-https";
         Check(hardened.Headers.Contains("Strict-Transport-Security")==shouldHaveHsts,"HSTS only on Production HTTPS");
         break;

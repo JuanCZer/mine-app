@@ -107,12 +107,39 @@ para usuario desconocido y contraseña incorrecta, sin revelar cuál condición 
 Todas las respuestas incluyen `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`,
 `Referrer-Policy: strict-origin-when-cross-origin` y una `Permissions-Policy`
-restrictiva. La política CSP completa permanece en
-`Content-Security-Policy-Report-Only` mientras se ensayan en navegador los workers,
-tiles y telemetría de Mapbox. Se puede ajustar con
-`HttpSecurity__ContentSecurityPolicyReportOnly` o desactivar temporalmente solo ese
-reporte con `HttpSecurity__EnableContentSecurityPolicyReportOnly=false`; la
-protección aplicada `frame-ancestors 'none'` permanece activa.
+restrictiva. La política CSP completa de prueba está desactivada por defecto:
+emitir `Content-Security-Policy-Report-Only` sin un destino de reportes genera un
+aviso del navegador y no bloquea solicitudes de Mapbox.
+
+Para observar violaciones antes de aplicar la política completa, configure un
+receptor real, agregue `report-to <grupo>` a
+`HttpSecurity__ContentSecurityPolicyReportOnly` y publique desde el proxy la
+cabecera `Reporting-Endpoints` que asocia ese grupo con la URL del receptor.
+Después active `HttpSecurity__EnableContentSecurityPolicyReportOnly=true` y
+ensaye login, fases, workers, tiles y telemetría de Mapbox. La plantilla por sí
+sola no configura ese receptor. Si un despliegue anterior activa el reporte sin
+receptor, establezca `HttpSecurity__EnableContentSecurityPolicyReportOnly=false`
+en `runtime.env` y recree el contenedor. La protección aplicada
+`frame-ancestors 'none'` permanece activa.
+
+`https://events.mapbox.com/events/v2` corresponde a telemetría de Mapbox; un error
+en esa petición no demuestra que hayan fallado el estilo o los tiles. Ante
+`Failed to load resource: bad URL`, compare con un perfil sin extensiones ni
+bloqueadores y revise las solicitudes a `api.mapbox.com` en la pestaña Red. Si
+estas devuelven 401/403, revise el token público y las URL permitidas para el
+dominio desplegado. Las fuentes CSP usan `https://` y `https://*.tiles.mapbox.com`
+sin barras invertidas. Consulte las [directivas y políticas de referencia de
+Mapbox](https://docs.mapbox.com/mapbox-gl-js/guides/security-and-testing/).
+
+Si el mapa queda vacío y su evento `error` contiene `Can't find variable` o
+`ReferenceError` dentro de una URL `blob:`, compruebe también el worker. El cliente
+importa el bundle `mapbox-gl-csp.js` y Angular copia `mapbox-gl-csp-worker.js`
+desde la misma dependencia instalada a `assets/mapbox/`
+sin transformarlo; el mapa establece esa URL antes de crear la instancia y añade
+la versión de Mapbox para evitar reutilizar un worker antiguo de la caché. El
+despliegue debe incluir ese archivo y servirlo como JavaScript, sin sustituirlo
+por el HTML del fallback SPA. Esta separación evita que el worker integrado
+dependa de variables auxiliares del bundle principal después de la optimización.
 
 HSTS se emite durante 180 días solo fuera de Development/Testing y solo cuando la
 solicitud observada es HTTPS. No habilita `includeSubDomains` ni `preload` sin una

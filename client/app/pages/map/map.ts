@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import mapboxgl from 'mapbox-gl';
+import mapboxgl from 'mapbox-gl/dist/mapbox-gl-csp.js';
 import { firstValueFrom } from 'rxjs';
 import { MAPBOX_TOKEN } from '../../core/config/mapbox.config';
 import { MapBounds, MapIncident, MapSector, MapService } from '../../core/services/map.service';
@@ -111,6 +111,11 @@ export class MapPage implements OnInit, OnDestroy {
     }
     if (this.destroyed) return;
     mapboxgl.accessToken = MAPBOX_TOKEN;
+    // Keep the worker outside Angular's transforms: a blob extracted from the
+    // optimized bundle can reference helpers that only exist on the main thread.
+    const workerUrl = new URL('assets/mapbox/mapbox-gl-csp-worker.js', document.baseURI);
+    workerUrl.searchParams.set('v', mapboxgl.version);
+    mapboxgl.workerUrl = workerUrl.href;
     try { this.map = new mapboxgl.Map({ container: this.mapContainer.nativeElement, style: 'mapbox://styles/mapbox/dark-v11', center, zoom }); }
     catch { this.mapError.set('No fue posible iniciar Mapbox. Verifica su configuración.'); return; }
     this.stopResizeObservation = observeMapResize(this.mapContainer.nativeElement, () => this.map?.resize());

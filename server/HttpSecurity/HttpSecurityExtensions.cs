@@ -12,7 +12,8 @@ public sealed class HttpSecuritySettings
         "script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.mapbox.com https://*.tiles.mapbox.com; " +
         "connect-src 'self' https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com; worker-src 'self' blob:";
 
-    public bool EnableContentSecurityPolicyReportOnly { get; set; } = true;
+    // Reporting needs an explicitly configured destination; the default policy has none.
+    public bool EnableContentSecurityPolicyReportOnly { get; set; } = false;
     public string ContentSecurityPolicyReportOnly { get; set; } = DefaultReportOnlyPolicy;
 }
 
