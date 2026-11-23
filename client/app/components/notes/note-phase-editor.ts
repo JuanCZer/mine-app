@@ -55,6 +55,7 @@ export class NotePhaseEditor {
   readonly note = input.required<Note>();
   readonly phase = input.required<NotePhase>();
   readonly editable = input(false);
+  readonly validationBlockedReason = input('');
   readonly busy = input(false);
   readonly basePending = input(false);
   readonly basePendingMessage = input(
@@ -80,7 +81,7 @@ export class NotePhaseEditor {
       ? 'Validar fase 4 y cerrar proceso'
       : this.phase().stage === 'reconnaissance' && this.draft().review.finding === 'false-positive'
         ? 'Validar y cerrar como falso positivo'
-        : `Validar fase ${this.phaseNumber()} y habilitar fase ${this.phaseNumber() + 1}`,
+        : `Validar fase ${this.phaseNumber()}`,
   );
   readonly catalogs = signal<Partial<Record<CatalogKey, CatalogItem[]>>>({});
   readonly catalogsLoading = signal(true);
@@ -355,6 +356,7 @@ export class NotePhaseEditor {
   validate() {
     if (
       !this.busy() &&
+      !this.validationBlockedReason() &&
       !this.basePending() &&
       !this.dirty() &&
       !this.issues().length &&

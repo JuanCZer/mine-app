@@ -144,7 +144,7 @@
           <label>Actividad humana observada<select formControlName="humanActivity"><option value="">Sin clasificar</option>@for (option of options('humanActivities', form.controls.humanActivity.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
         </div>
         <label>Decisión sobre el entorno humano<select formControlName="environmentDecision"><option value="">Sin decisión</option>@for (option of options('environmentDecisions', form.controls.environmentDecision.value); track option.code) {<option [value]="option.code" [disabled]="!option.active">{{ option.label }}{{ option.active ? '' : ' (inactivo)' }}</option>}</select></label>
-        <p class="hint">Se requieren las referencias EO/IR y de captura IMSI, IMEI o TMSI, además de un método de geolocalización o radiogoniometría. Solo una certificación del entorno habilita Fase 4.</p>
+        <p class="hint">Se requieren las referencias EO/IR y de captura IMSI, IMEI o TMSI, además de un método de geolocalización o radiogoniometría. La certificación del entorno es necesaria para validar posteriormente la Fase 4.</p>
       }
       @case ('mitigation') {
         <aside class="document-context">
@@ -193,21 +193,22 @@
 </section>
 <app-evidence-panel [evidence]="draft().evidence" [editable]="editable() && !busy()" [allowRemove]="true" [draftMode]="true" [sensorOptions]="evidenceSensors()" [catalogReady]="catalogsReady()" (added)="addEvidence($event)" (removed)="removeEvidence($event)" (draftChange)="pendingEvidence.set($event)" />
 @if (editable()) {
-  <section class="validation" aria-label="Validación obligatoria de la fase">
-    <h4>Validación obligatoria</h4>
+  <section class="validation" aria-label="Requisitos pendientes y validación de la fase">
+    <h4>Requisitos para validar</h4>
     @if (issues().length) {
-      <p>Falta completar:</p>
+      <p>Falta completar lo siguiente. Puedes cambiar de fase y volver después:</p>
       <ul>@for (issue of issues(); track issue) {<li>{{ issue }}</li>}</ul>
     } @else {
-      <p>Información completa. Guarda el borrador y valida esta fase para continuar.</p>
+      <p>Información completa. Guarda el borrador cuando termines; puedes cambiar de fase sin validarlo.</p>
     }
     @if (basePending()) {<p class="notice">{{ basePendingMessage() }}</p>}
     @if (pendingEvidence()) {<p class="notice">Agrega al borrador la evidencia que estás escribiendo o limpia sus campos.</p>}
+    @if (validationBlockedReason()) {<p class="notice">{{ validationBlockedReason() }}</p>}
     <div class="actions">
       <span>{{ dirty() ? 'Cambios sin guardar' : 'Borrador guardado; aún requiere validación' }}</span>
       <button type="button" class="secondary" [disabled]="busy() || !catalogsReady() || basePending() || pendingEvidence() || form.invalid || !dirty()" (click)="save()">{{ busy() ? 'Procesando…' : 'Guardar borrador de fase' }}</button>
-      <button type="button" class="primary" [disabled]="busy() || !catalogsReady() || basePending() || dirty() || issues().length > 0" (click)="validate()">{{ validationLabel() }}</button>
+      <button type="button" class="primary" [disabled]="busy() || !catalogsReady() || basePending() || dirty() || issues().length > 0 || !!validationBlockedReason()" (click)="validate()">{{ validationLabel() }}</button>
     </div>
-    <small>Guardar no valida. La API verifica los requisitos antes de habilitar la siguiente fase.</small>
+    <small>Guardar no valida. La validación comprueba los requisitos y el orden de las fases; no es necesaria para navegar entre ellas.</small>
   </section>
 }

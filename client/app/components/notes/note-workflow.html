@@ -7,8 +7,8 @@
     <strong>{{ completed() }} de 4 validadas</strong>
   </div>
   <p class="intro">
-    Cada punto indica la ubicación de la incidencia en el proceso. Solo la validación habilita el
-    siguiente punto.
+    Puedes cambiar entre fases sin completarlas ni validarlas. Los requisitos pendientes se muestran
+    en cada fase y los cambios que escribas se conservan mientras permaneces en esta incidencia.
   </p>
   <ol class="progress-track" aria-label="Secuencia de fases de la incidencia">
     @for (layer of layers; track layer.id; let index = $index) {
@@ -27,23 +27,15 @@
           <span class="phase-copy"
             ><small>FASE {{ index + 1 }}</small
             ><b>{{ layer.title }}</b
-            ><em>{{
-              isValidated(layer.id)
-                ? 'Validada'
-                : isLocked(layer.id)
-                  ? index === 0
-                    ? 'Registra la incidencia'
-                    : 'Bloqueada'
-                  : 'En proceso'
-            }}</em></span
+            ><em>{{ phaseStatus(layer.id) }}</em></span
           >
         </button>
       </li>
     }
   </ol>
   <p class="sequence">
-    Secuencia: indicios → reconocimiento → vigilancia → mitigación. La vigilancia se valida antes de
-    la mitigación.
+    La validación formal mantiene el orden: indicios → reconocimiento → vigilancia → mitigación.
+    Guarda los borradores para conservarlos al salir de la incidencia.
   </p>
   @if (error()) {
     <p class="error" role="alert">
@@ -59,24 +51,45 @@
         {{
           workflow().status === 'closed'
             ? 'Proceso completado: las cuatro fases fueron validadas.'
-            : 'Incidencia cerrada como falso positivo. Las fases posteriores no se inician.'
+            : 'Incidencia cerrada como falso positivo. Todos sus datos quedan en modo de consulta.'
         }}
         Puedes consultar los datos y las validaciones anteriores.
       </div>
     }
-    <app-note-phase-editor
-      [note]="record"
-      [phase]="phase()"
-      [resetToken]="resetToken()"
-      [editable]="editable()"
-      [busy]="busy() || parentBusy()"
-      [basePending]="basePending()"
-      (saved)="save($event)"
-      (validated)="validate()"
-      (dirtyChange)="editorDirty.set($event)"
-    >
-      <ng-content select="[noteGeneral]" />
-    </app-note-phase-editor>
+    @if (visited().includes('indications')) {
+      <div [hidden]="selected() !== 'indications'">
+        <app-note-phase-editor
+          [note]="record"
+          [phase]="workflow().phases[0]"
+          [resetToken]="resetToken()"
+          [editable]="editable('indications')"
+          [validationBlockedReason]="validationBlockedReason('indications')"
+          [busy]="busy() || parentBusy()"
+          [basePending]="basePending()"
+          (saved)="save($event)"
+          (validated)="validate()"
+        >
+          <ng-content select="[noteGeneral]" />
+        </app-note-phase-editor>
+      </div>
+    }
+    @for (phase of workflow().phases.slice(1); track phase.stage) {
+      @if (visited().includes(phase.stage)) {
+        <div [hidden]="selected() !== phase.stage">
+          <app-note-phase-editor
+            [note]="record"
+            [phase]="phase"
+            [resetToken]="resetToken()"
+            [editable]="editable(phase.stage)"
+            [validationBlockedReason]="validationBlockedReason(phase.stage)"
+            [busy]="busy() || parentBusy()"
+            [basePending]="basePending()"
+            (saved)="save($event)"
+            (validated)="validate()"
+          />
+        </div>
+      }
+    }
     @if (workflow().history.length) {
       <details>
         <summary>Historial de guardados y validaciones ({{ workflow().history.length }})</summary>
@@ -90,8 +103,8 @@
     <div class="empty">
       <strong>Registra primero los datos de la fase 1: indicios tempranos.</strong>
       <p>
-        Después podrás completar y validar la fase 1. Los puntos de las fases 2, 3 y 4 permanecerán
-        bloqueados hasta validar la anterior.
+        Después podrás navegar entre las cuatro fases y guardar borradores, aunque falten campos o
+        validaciones anteriores.
       </p>
     </div>
   }

@@ -97,13 +97,22 @@ public static class WorkflowRules
         if (expected != note.Revision) throw new WorkflowException("La incidencia cambió. Recarga la versión actual antes de guardar o validar.");
     }
 
-    public static NotePhase ActivePhase(Note note, string stage)
+    public static NotePhase EditablePhase(Note note, string stage)
     {
         if (!Stages.Contains(stage)) throw new WorkflowException("La fase indicada no existe.", 400);
         var workflow = note.Workflow ?? NoteWorkflow.Empty();
         if (workflow.Status != "open") throw new WorkflowException("El proceso de esta incidencia ya está cerrado.");
-        if (workflow.CurrentStage != stage) throw new WorkflowException("Debes validar la fase anterior antes de iniciar esta fase. Las fases validadas son de solo lectura.");
-        return workflow.Phases.Single(phase => phase.Stage == stage);
+        var phase = workflow.Phases.Single(phase => phase.Stage == stage);
+        if (phase.ValidatedAt is not null) throw new WorkflowException("Las fases validadas son de solo lectura.");
+        return phase;
+    }
+
+    public static NotePhase ActivePhase(Note note, string stage)
+    {
+        var phase = EditablePhase(note, stage);
+        if ((note.Workflow ?? NoteWorkflow.Empty()).CurrentStage != stage)
+            throw new WorkflowException("Debes validar las fases anteriores antes de validar esta fase. Puedes guardar su borrador sin validarlas.");
+        return phase;
     }
 
     public static void CheckDraft(PhaseData? data)

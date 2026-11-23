@@ -52,7 +52,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
     public Task<Note?> SavePhase(string userId, string id, string stage, SavePhaseRequest request, CancellationToken cancellationToken = default) => ChangeAsync(userId, id, async note =>
     {
         WorkflowRules.CheckRevision(note, request.ExpectedRevision);
-        var current = WorkflowRules.ActivePhase(note, stage);
+        var current = WorkflowRules.EditablePhase(note, stage);
         WorkflowRules.CheckDraft(request.Data);
         await catalogs.ValidateSelectionsAsync(request.Data, stage, current.Data, cancellationToken);
         var data = request.Data with {
@@ -65,7 +65,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
         };
         return note with { Workflow = note.Workflow! with {
             Phases = note.Workflow!.Phases.Select(phase => phase.Stage == stage ? phase with { Data = data } : phase).ToList(),
-            History = AddEvent(note.Workflow!, userId, $"Borrador guardado: fase {Array.IndexOf(WorkflowRules.Stages, stage) + 1}. No habilita la siguiente fase.")
+            History = AddEvent(note.Workflow!, userId, $"Borrador guardado: fase {Array.IndexOf(WorkflowRules.Stages, stage) + 1}. Pendiente de validación.")
         } };
     }, cancellationToken);
 
@@ -80,7 +80,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
         var now = DateTimeOffset.UtcNow;
         var status = stage == "mitigation" ? "closed" : stage == "reconnaissance" && phase.Data.Review.Finding == "false-positive" ? "discarded" : "open";
         var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-        var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Fase {number + 1} habilitada.";
+        var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Siguiente validación: fase {number + 1}.";
         return note with { Workflow = new NoteWorkflow(status,
             note.Workflow!.Phases.Select(p => p.Stage == stage ? p with { ValidatedAt = now, ValidatedBy = userId } : p).ToList(),
             AddEvent(note.Workflow!, userId, text)) };

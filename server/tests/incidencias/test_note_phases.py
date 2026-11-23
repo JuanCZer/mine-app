@@ -358,11 +358,28 @@ class PhaseApiTests(unittest.TestCase):
             for phase in self.note['workflow']['phases']
         ))
 
-    def test_direct_api_requests_cannot_start_or_validate_future_phases(self):
-        for stage in STAGES[1:]:
-            status, _ = self.request('PUT', self.path(stage), dict(expectedRevision=0, data=complete_data(stage)))
-            self.assertEqual(status, 409)
+    def test_incomplete_future_drafts_can_be_saved_in_any_order_without_validation(self):
+        for stage in reversed(STAGES[1:]):
+            data = next(p['data'] for p in self.note['workflow']['phases'] if p['stage'] == stage)
+            data['review']['notes'] = f'Borrador parcial de {stage}'
+            self.save(stage, data)
+            self.assertEqual(self.note['workflow']['currentStage'], 'indications')
+            self.assertEqual(self.note['workflow']['status'], 'open')
+            self.assertTrue(all(p['validatedAt'] is None for p in self.note['workflow']['phases']))
             self.assertEqual(self.validate(stage)[0], 409)
+        _, reloaded = self.request('GET', f'/api/notes/{self.note["id"]}')
+        for phase in reloaded['workflow']['phases'][1:]:
+            self.assertEqual(phase['data']['review']['notes'], f'Borrador parcial de {phase["stage"]}')
+        self.assertEqual(reloaded['revision'], 3)
+
+    def test_complete_future_draft_cannot_validate_before_previous_phases(self):
+        self.save('mitigation')
+        self.assertEqual(self.validate('mitigation')[0], 409)
+
+    def test_future_drafts_require_current_revision(self):
+        self.save('mitigation')
+        status, _ = self.request('PUT', self.path('surveillance'), dict(expectedRevision=0, data=complete_data('surveillance')))
+        self.assertEqual(status, 409)
 
     def test_creating_note_cannot_inject_completed_workflow(self):
         status, note = self.request('POST', '/api/notes', {**BASE, 'workflow': {'status': 'closed', 'currentStage': 'mitigation', 'phases': []}, 'revision': 500})
@@ -370,7 +387,7 @@ class PhaseApiTests(unittest.TestCase):
         self.assertEqual(note['workflow']['currentStage'], 'indications')
         self.assertEqual(note['revision'], 0)
 
-    def test_drafts_do_not_unlock_next_phase(self):
+    def test_drafts_do_not_validate_the_previous_phase(self):
         self.save('indications')
         self.assertEqual(self.note['workflow']['currentStage'], 'indications')
         self.assertIsNone(self.note['workflow']['phases'][0]['validatedAt'])
@@ -502,6 +519,7 @@ class PhaseApiTests(unittest.TestCase):
         self.assertIn('fusión', joined)
 
     def test_false_positive_closes_without_enabling_later_phases(self):
+        self.save('mitigation')
         self.advance_to('reconnaissance')
         data = complete_data('reconnaissance')
         data['review']['finding'] = 'false-positive'
@@ -510,6 +528,9 @@ class PhaseApiTests(unittest.TestCase):
         self.assertEqual(self.note['workflow']['status'], 'discarded')
         self.assertIsNone(self.note['workflow']['currentStage'])
         self.assertEqual(self.validate('surveillance')[0], 409)
+        status, _ = self.request('PUT', self.path('mitigation'), dict(expectedRevision=self.note['revision'], data=complete_data('mitigation')))
+        self.assertEqual(status, 409)
+        self.assertEqual(self.note['workflow']['phases'][3]['data']['mitigation']['eodHandoffReference'], 'EOD-01')
 
     def test_surveillance_certificate_and_techint_feedback_prevent_advancement(self):
         self.advance_to('surveillance')

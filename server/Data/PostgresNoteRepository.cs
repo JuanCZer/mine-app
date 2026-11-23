@@ -127,7 +127,7 @@ public sealed class PostgresNoteRepository(
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
 
-            await InsertEventAsync(connection, transaction, incidentId, userId, "Incidencia registrada. Fase 1 habilitada.", 0, cancellationToken);
+            await InsertEventAsync(connection, transaction, incidentId, userId, "Incidencia registrada. Las cuatro fases están disponibles para captura.", 0, cancellationToken);
             await InsertAuditAsync(connection, transaction, userId, incidentId, "incident.create", "succeeded", 0, cancellationToken);
             var created = (await LoadAsync(connection, transaction, userId, publicId, false, cancellationToken))!.Note;
             await transaction.CommitAsync(cancellationToken);
@@ -182,7 +182,7 @@ public sealed class PostgresNoteRepository(
         Mutate(userId, id, async (connection, transaction, loaded) =>
         {
             WorkflowRules.CheckRevision(loaded.Note, request.ExpectedRevision);
-            var current = WorkflowRules.ActivePhase(loaded.Note, stage);
+            var current = WorkflowRules.EditablePhase(loaded.Note, stage);
             WorkflowRules.CheckDraft(request.Data);
             await catalogs.ValidateSelectionsAsync(
                 request.Data,
@@ -195,7 +195,7 @@ public sealed class PostgresNoteRepository(
             await SavePhaseDataAsync(connection, transaction, phaseId, stage, request.Data, UserGuid(userId), null, cancellationToken);
             var revision = await IncrementRevisionAsync(connection, transaction, loaded.InternalId, loaded.Note.Revision, null, cancellationToken);
             var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, $"Borrador guardado: fase {number}. No habilita la siguiente fase.", revision, cancellationToken, request.Data.Review.Reviewer);
+            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, $"Borrador guardado: fase {number}. Pendiente de validación.", revision, cancellationToken, request.Data.Review.Reviewer);
             await InsertAuditAsync(connection, transaction, userId, loaded.InternalId, "phase.save", "succeeded", revision, cancellationToken, stage);
         }, cancellationToken);
 
@@ -244,7 +244,7 @@ public sealed class PostgresNoteRepository(
             var status = stage == "mitigation" ? "closed" : stage == "reconnaissance" && phase.Data.Review.Finding == "false-positive" ? "discarded" : "open";
             await IncrementRevisionAsync(connection, transaction, loaded.InternalId, loaded.Note.Revision, status, cancellationToken);
             var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-            var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Fase {number + 1} habilitada.";
+            var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Siguiente validación: fase {number + 1}.";
             await InsertEventAsync(connection, transaction, loaded.InternalId, userId, text, revision, cancellationToken, phase.Data.Review.Reviewer);
             await InsertAuditAsync(connection, transaction, userId, loaded.InternalId, "phase.validate", "succeeded", revision, cancellationToken, stage);
         }, cancellationToken);

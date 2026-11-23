@@ -187,7 +187,7 @@ export class NotesPage implements OnInit {
         : await firstValueFrom(this.notesService.create(input));
       this.updated(saved);
       this.message.set(
-        'Datos de anomalía I&W guardados. Completa y valida la fase 1 para habilitar el siguiente punto.',
+        'Datos de anomalía I&W guardados. Puedes capturar información en cualquier fase y completar los pendientes después.',
       );
     } catch (error) {
       this.error.set(noteError(error));
@@ -208,7 +208,7 @@ export class NotesPage implements OnInit {
       created = await firstValueFrom(this.notesService.create(this.form.getRawValue()));
       const saved = await firstValueFrom(this.notesService.savePhase(created, 'indications', data));
       this.updated(saved);
-      this.message.set('Incidencia y borrador completo de Fase 1 I&W guardados. Valida la fase para habilitar reconocimiento.');
+      this.message.set('Incidencia y borrador de Fase 1 I&W guardados. Ya puedes navegar entre las cuatro fases.');
     } catch (error) {
       if (created) this.updated(created);
       this.error.set(noteError(error));
