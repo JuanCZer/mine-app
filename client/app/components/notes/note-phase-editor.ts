@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { I18nService } from '../../core/i18n/i18n.service';
 import {
   Component,
   computed,
@@ -16,6 +16,7 @@ import { firstValueFrom } from 'rxjs';
 import { CatalogItem, CatalogKey } from '../../core/models/catalog.model';
 import {
   DETECTION_LAYERS,
+  detectionLayers,
   Evidence,
   Season,
   Sensor,
@@ -47,11 +48,15 @@ import { EvidencePanel } from '../detection/evidence-panel';
 
 @Component({
   selector: 'app-note-phase-editor',
-  imports: [ReactiveFormsModule, DatePipe, EvidencePanel],
+  imports: [ReactiveFormsModule, EvidencePanel],
   templateUrl: './note-phase-editor.html',
   styleUrl: './note-phase-editor.less',
 })
 export class NotePhaseEditor {
+  readonly i18n = inject(I18nService);
+  get dictionary() {
+    return this.i18n.dictionary();
+  }
   private readonly catalogsService = inject(CatalogsService);
   readonly note = input.required<Note>();
   readonly phase = input.required<NotePhase>();
@@ -59,9 +64,7 @@ export class NotePhaseEditor {
   readonly validationBlockedReason = input('');
   readonly busy = input(false);
   readonly basePending = input(false);
-  readonly basePendingMessage = input(
-    'Guarda primero los cambios en los datos generales de la incidencia.',
-  );
+  readonly basePendingMessage = input('');
   readonly resetToken = input(0);
   readonly contextKey = input<number | null>(null);
   readonly saved = output<NotePhaseData>();
@@ -72,22 +75,24 @@ export class NotePhaseEditor {
   readonly pendingEvidence = signal(false);
   readonly dirty = computed(() => this.reviewDirty() || this.pendingEvidence());
   readonly definition = computed(() =>
-    DETECTION_LAYERS.find((layer) => layer.id === this.phase().stage)!,
+    detectionLayers(this.dictionary.workflow).find((layer) => layer.id === this.phase().stage)!,
   );
   readonly phaseNumber = computed(
     () => DETECTION_LAYERS.findIndex((layer) => layer.id === this.phase().stage) + 1,
   );
-  readonly issues = computed(() => notePhaseIssues(this.note(), this.phase().stage, this.draft()));
+  readonly issues = computed(() =>
+    notePhaseIssues(this.note(), this.phase().stage, this.draft(), this.dictionary.workflow),
+  );
   readonly validationLabel = computed(() =>
     this.phase().stage === 'mitigation'
-      ? 'Validar fase 4 y cerrar proceso'
+      ? this.dictionary.workflow.editor.validateClose
       : this.phase().stage === 'reconnaissance' && this.draft().review.finding === 'false-positive'
-        ? 'Validar y cerrar como falso positivo'
-        : `Validar fase ${this.phaseNumber()}`,
+        ? this.dictionary.workflow.editor.validateFalsePositive
+        : this.i18n.text('workflow.editor.validatePhase', { phase: this.phaseNumber() }),
   );
   readonly catalogs = signal<Partial<Record<CatalogKey, CatalogItem[]>>>({});
   readonly catalogsLoading = signal(true);
-  readonly catalogsError = signal('');
+  readonly catalogsError = this.i18n.message();
   private catalogRequest = 0;
   readonly stageKeys = computed<readonly CatalogKey[]>(() => {
     const common: CatalogKey[] = ['sensors'];
@@ -287,7 +292,8 @@ export class NotePhaseEditor {
       const context = `${this.resetToken()}:${this.contextKey() ?? this.note().id}:${phase.stage}`;
       const key = `${context}:${phase.validatedAt}:${JSON.stringify(phase.data)}`;
       if (key === this.loadedKey) return;
-      const preserveDraft = context === this.loadedContext && !phase.validatedAt && untracked(this.dirty);
+      const preserveDraft =
+        context === this.loadedContext && !phase.validatedAt && untracked(this.dirty);
       this.loadedKey = key;
       this.loadedContext = context;
       // Creating the incident returns empty server phases; local drafts still belong to this session.
@@ -413,9 +419,7 @@ export class NotePhaseEditor {
       this.catalogs.set(response.catalogs);
     } catch {
       if (requestId !== this.catalogRequest) return;
-      this.catalogsError.set(
-        'No fue posible cargar los catálogos de esta fase. El borrador se conserva.',
-      );
+      this.catalogsError.set({ key: 'workflow.editor.catalogsError' });
     } finally {
       if (requestId === this.catalogRequest) this.catalogsLoading.set(false);
     }
@@ -430,7 +434,10 @@ export class NotePhaseEditor {
     const current = this.catalogs()[key] ?? [];
     const merged = current.map((item) => {
       const frozen = historical.get(item.code);
-      return frozen ? { ...item, label: frozen.label } : item;
+      return {
+        ...item,
+        label: frozen?.label ?? this.i18n.catalogLabel(key, item.code, item.label),
+      };
     });
     for (const frozen of historical.values()) {
       if (merged.some((item) => item.code === frozen.code)) continue;
@@ -443,6 +450,20 @@ export class NotePhaseEditor {
       });
     }
     return this.catalogsService.selectable(merged, selected);
+  }
+  optionLabel(item: CatalogItem): string {
+    return item.active
+      ? item.label
+      : this.i18n.text('workflow.editor.inactive', { name: item.label });
+  }
+  validatedStamp(): string {
+    const phase = this.phase();
+    return this.i18n.format(
+      phase.validatedBy
+        ? this.dictionary.workflow.editor.validatedByStamp
+        : this.dictionary.workflow.editor.validatedStamp,
+      { name: phase.validatedBy ?? '', date: this.i18n.date(phase.validatedAt) },
+    );
   }
   private catalogIsUsable(key: CatalogKey): boolean {
     const items = this.catalogs()[key] ?? [];

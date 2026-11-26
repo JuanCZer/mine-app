@@ -1,5 +1,5 @@
-import { DatePipe } from '@angular/common';
-import { Component, computed, input, output } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CatalogItem } from '../../core/models/catalog.model';
@@ -7,17 +7,21 @@ import { Evidence, Sensor } from '../../core/models/detection.model';
 
 @Component({
   selector: 'app-evidence-panel',
-  imports: [DatePipe, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   template: `
     <section class="panel">
       <div class="heading">
-        <h3>Evidencias de la fase</h3>
-        <span>{{ evidence().length }} referencias</span>
+        <h3>{{ dictionary.workflow.evidence.heading }}</h3>
+        <span>{{
+          i18n.format(
+            evidence().length === 1
+              ? dictionary.workflow.evidence.countOne
+              : dictionary.workflow.evidence.countMany,
+            { count: i18n.number(evidence().length) }
+          )
+        }}</span>
       </div>
-      <p class="hint">
-        Registra el folio o la ubicación del archivo original. Los archivos de sensores se conservan
-        en su sistema de origen.
-      </p>
+      <p class="hint">{{ dictionary.workflow.evidence.hint }}</p>
       @for (entry of evidence(); track entry.id) {
         <article>
           <span class="sensor">{{ sensorLabel(entry.sensor) }}</span>
@@ -25,14 +29,16 @@ import { Evidence, Sensor } from '../../core/models/detection.model';
             <strong>{{ entry.reference }}</strong>
             <p>{{ entry.summary }}</p>
             @if (entry.recordedAt) {
-              <time>{{ entry.recordedAt | date: 'dd/MM/yyyy HH:mm' }}</time>
+              <time>{{ i18n.date(entry.recordedAt) }}</time>
             }
           </div>
           @if (editable() && allowRemove()) {
             <button
               class="remove"
               type="button"
-              [attr.aria-label]="'Quitar evidencia ' + entry.reference"
+              [attr.aria-label]="
+                i18n.format(dictionary.workflow.evidence.remove, { name: entry.reference })
+              "
               (click)="removed.emit(entry.id)"
             >
               ×
@@ -40,36 +46,43 @@ import { Evidence, Sensor } from '../../core/models/detection.model';
           }
         </article>
       } @empty {
-        <div class="empty">Aún no hay evidencias registradas para esta fase.</div>
+        <div class="empty">{{ dictionary.workflow.evidence.empty }}</div>
       }
       @if (editable()) {
         <form [formGroup]="form" (ngSubmit)="submit()">
           <div class="fields">
             <label
-              >Fuente<select formControlName="sensor">
-                <option value="">Selecciona una fuente</option>
+              >{{ dictionary.workflow.evidence.source
+              }}<select formControlName="sensor">
+                <option value="">{{ dictionary.workflow.evidence.selectSource }}</option>
                 @for (sensor of selectableSensors(); track sensor.code) {
-                  <option [value]="sensor.code" [disabled]="!sensor.active">{{ sensor.label }}{{ sensor.active ? '' : ' (inactivo)' }}</option>
+                  <option [value]="sensor.code" [disabled]="!sensor.active">
+                    {{ optionLabel(sensor) }}
+                  </option>
                 }
               </select></label
             >
             <label
-              >Referencia o folio<input
+              >{{ dictionary.workflow.evidence.reference
+              }}<input
                 formControlName="reference"
                 maxlength="300"
-                placeholder="Ej. REP-2026-014 / repositorio"
+                [placeholder]="dictionary.workflow.evidence.referencePlaceholder"
             /></label>
           </div>
           <label
-            >Descripción<textarea
+            >{{ dictionary.workflow.evidence.summary
+            }}<textarea
               formControlName="summary"
               rows="2"
               maxlength="2000"
-              placeholder="Qué aporta esta evidencia y cuáles son sus limitaciones"
+              [placeholder]="dictionary.workflow.evidence.summaryPlaceholder"
             ></textarea>
           </label>
           <button type="submit" [disabled]="form.invalid || !catalogReady()">
-            {{ draftMode() ? '＋ Agregar evidencia al borrador' : '＋ Registrar evidencia' }}
+            {{
+              draftMode() ? dictionary.workflow.evidence.addDraft : dictionary.workflow.evidence.add
+            }}
           </button>
         </form>
       }
@@ -192,23 +205,80 @@ import { Evidence, Sensor } from '../../core/models/detection.model';
         padding: 18px;
       }
     }
-    .panel { border-color: var(--line); background: var(--surface); color: var(--text); }
-    h3 { color: var(--text); font-size: 16px; }
-    .heading span, .hint { color: var(--text-secondary); font-size: 12px; }
-    article { border-color: var(--line); }
-    strong { color: var(--text); font-size: 12px; }
-    article p { color: var(--text-secondary); font-size: 12px; }
-    time { color: var(--text-muted); font-size: 10px; }
-    .sensor { border: 1px solid var(--line-strong); background: var(--surface-input); color: var(--accent-hover); }
-    .empty { color: var(--text-secondary); }
-    label { color: var(--text-secondary); font-size: 12px; font-weight: 600; }
-    input, select, textarea { border-color: var(--line); background: var(--surface-input); color: var(--text); font-size: 14px; }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(91 184 232 / .15); outline: 0; }
-    button { border-color: rgb(121 211 245 / .5); background: var(--surface-hover); color: var(--accent-hover); font-size: 12px; }
-    button:hover:not(:disabled) { border-color: var(--accent); color: #fff; }
+    .panel {
+      border-color: var(--line);
+      background: var(--surface);
+      color: var(--text);
+    }
+    h3 {
+      color: var(--text);
+      font-size: 16px;
+    }
+    .heading span,
+    .hint {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    article {
+      border-color: var(--line);
+    }
+    strong {
+      color: var(--text);
+      font-size: 12px;
+    }
+    article p {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    time {
+      color: var(--text-muted);
+      font-size: 10px;
+    }
+    .sensor {
+      border: 1px solid var(--line-strong);
+      background: var(--surface-input);
+      color: var(--accent-hover);
+    }
+    .empty {
+      color: var(--text-secondary);
+    }
+    label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    input,
+    select,
+    textarea {
+      border-color: var(--line);
+      background: var(--surface-input);
+      color: var(--text);
+      font-size: 14px;
+    }
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgb(91 184 232 / 0.15);
+      outline: 0;
+    }
+    button {
+      border-color: rgb(121 211 245 / 0.5);
+      background: var(--surface-hover);
+      color: var(--accent-hover);
+      font-size: 12px;
+    }
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: #fff;
+    }
   `,
 })
 export class EvidencePanel {
+  readonly i18n = inject(I18nService);
+  get dictionary() {
+    return this.i18n.dictionary();
+  }
   readonly evidence = input<
     (Pick<Evidence, 'id' | 'sensor' | 'reference' | 'summary'> & { recordedAt?: string | null })[]
   >([]);
@@ -245,7 +315,11 @@ export class EvidencePanel {
       .pipe(takeUntilDestroyed())
       .subscribe(() =>
         this.draftChange.emit(
-          !!(this.form.controls.sensor.value || this.form.controls.reference.value || this.form.controls.summary.value),
+          !!(
+            this.form.controls.sensor.value ||
+            this.form.controls.reference.value ||
+            this.form.controls.summary.value
+          ),
         ),
       );
   }
@@ -255,8 +329,13 @@ export class EvidencePanel {
   reset() {
     this.form.reset({ sensor: '', reference: '', summary: '' });
   }
+  optionLabel(item: CatalogItem): string {
+    return item.active
+      ? item.label
+      : this.i18n.text('workflow.editor.inactive', { name: item.label });
+  }
   sensorLabel(code: string) {
     const item = this.sensorOptions().find((option) => option.code === code);
-    return item ? `${item.label}${item.active ? '' : ' (inactivo)'}` : code;
+    return item ? this.optionLabel(item) : code;
   }
 }

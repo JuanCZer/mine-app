@@ -171,6 +171,69 @@ class PhaseApiTests(unittest.TestCase):
         status, self.note = self.request('POST', '/api/notes', BASE)
         self.assertEqual(status, 200)
 
+    def test_localizable_input_and_workflow_errors_keep_legacy_fields(self):
+        status, invalid = self.request('POST', '/api/notes', dict(BASE, title=''))
+        self.assertEqual(status, 400)
+        self.assertEqual(invalid['code'], 'incident_title_invalid')
+        self.assertIn('120', invalid['error'])
+        status, conflict = self.request('PUT', '/api/notes/' + self.note['id'], dict(BASE, expectedRevision=99))
+        self.assertEqual(status, 409)
+        self.assertEqual(conflict['code'], 'incident_revision_conflict')
+        self.assertIn('Recarga', conflict['error'])
+        self.assertEqual(conflict['issues'], [])
+
+    def test_localizable_validation_issues_preserve_order_and_parameters(self):
+        data = complete_data('indications')
+        data['review']['baseline'] = ''
+        data['review']['comparison'] = ''
+        status, saved = self.request('PUT', f'/api/notes/{self.note["id"]}/phases/indications',
+                                    {'expectedRevision': 0, 'data': data})
+        self.assertEqual(status, 200, saved)
+        status, invalid = self.request('POST', f'/api/notes/{self.note["id"]}/phases/indications/validate',
+                                      {'expectedRevision': saved['revision']})
+        self.assertEqual(status, 422)
+        self.assertEqual(invalid['code'], 'phase_validation_failed')
+        self.assertEqual(invalid['issues'], ['Falta la referencia del levantamiento base.',
+                                             'Falta la referencia del levantamiento de comparación.'])
+        self.assertEqual([issue['code'] for issue in invalid['issueDetails']],
+                         ['baseline_required', 'comparison_required'])
+
+        data['soil'] = 'missing-soil'
+        status, invalid = self.request('PUT', f'/api/notes/{self.note["id"]}/phases/indications',
+                                      {'expectedRevision': saved['revision'], 'data': data})
+        self.assertEqual(status, 400)
+        self.assertEqual(invalid['code'], 'catalog_selection_invalid')
+        self.assertEqual(invalid['parameters'], {'field': 'soil'})
+        self.assertEqual(invalid['issues'], ['soil'])
+
+    def test_history_metadata_roundtrips_and_preserves_legacy_events(self):
+        created = self.note['workflow']['history'][-1]
+        self.assertEqual(created['code'], 'incident_created')
+        records = json.loads(self.data_path.read_text())
+        record = next(note for note in records if note['id'] == self.note['id'])
+        legacy = {'id': 'old-event', 'at': '2026-01-01T00:00:00Z', 'actor': 'Usuario original',
+                  'text': 'Texto histórico que se conserva.'}
+        record['workflow']['history'].insert(0, legacy)
+        self.data_path.write_text(json.dumps(records))
+        status, saved = self.request('PUT', f'/api/notes/{self.note["id"]}/phases/indications',
+                                    {'expectedRevision': 0, 'data': complete_data('indications')})
+        self.assertEqual(status, 200, saved)
+        event = saved['workflow']['history'][-1]
+        self.assertEqual(event['code'], 'phase_saved')
+        self.assertEqual(event['parameters'], {'stage': 1})
+        self.assertIn('Borrador guardado', event['text'])
+        status, validated = self.request('POST', f'/api/notes/{self.note["id"]}/phases/indications/validate',
+                                        {'expectedRevision': saved['revision']})
+        self.assertEqual(status, 200, validated)
+        self.assertEqual(validated['workflow']['history'][-1]['code'], 'phase_validated')
+        self.assertEqual(validated['workflow']['history'][-1]['parameters'], {'stage': 1, 'nextStage': 2})
+        status, loaded = self.request('GET', '/api/notes/' + self.note['id'])
+        self.assertEqual(status, 200)
+        self.assertEqual(loaded['workflow']['history'][-1], validated['workflow']['history'][-1])
+        original = loaded['workflow']['history'][0]
+        self.assertEqual(original['text'], legacy['text'])
+        self.assertIsNone(original.get('code'))
+
     def test_shared_map_counts_all_owners_and_preserves_write_ownership(self):
         other = '22222222-2222-4222-8222-222222222222'
         with authenticated_request(self.url, 'POST', '/api/notes', dict(BASE, title='Otro', longitude=-101.8), user=other, role='operador') as response:
@@ -304,6 +367,7 @@ class PhaseApiTests(unittest.TestCase):
         finally:
             self.data_path.write_text(original)
         self.assertEqual(status, 503)
+        self.assertEqual(result['code'], 'incident_service_unavailable')
         self.assertNotIn('total', result)
         self.assertNotIn('sectors', result)
 
@@ -458,7 +522,10 @@ class PhaseApiTests(unittest.TestCase):
         self.assertEqual(self.note['workflow']['status'], 'closed')
         saved = next(n for n in json.loads(self.data_path.read_text()) if n['id'] == self.note['id'])
         self.assertEqual(saved['workflow']['status'], 'closed')
-        self.assertEqual(len(saved['workflow']['history']), 8)
+        self.assertEqual([event['code'] for event in saved['workflow']['history']], [
+            'incident_created', 'phase_saved', 'phase_validated', 'phase_saved', 'phase_validated',
+            'phase_saved', 'phase_validated', 'phase_saved', 'workflow_closed',
+        ])
         self.assertEqual(self.validate('mitigation')[0], 409)
 
     def test_validated_phases_and_general_information_are_readonly(self):
@@ -526,6 +593,7 @@ class PhaseApiTests(unittest.TestCase):
         self.save('reconnaissance', data)
         self.assertEqual(self.validate('reconnaissance')[0], 200)
         self.assertEqual(self.note['workflow']['status'], 'discarded')
+        self.assertEqual(self.note['workflow']['history'][-1]['code'], 'workflow_discarded')
         self.assertIsNone(self.note['workflow']['currentStage'])
         self.assertEqual(self.validate('surveillance')[0], 409)
         status, _ = self.request('PUT', self.path('mitigation'), dict(expectedRevision=self.note['revision'], data=complete_data('mitigation')))

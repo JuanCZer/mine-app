@@ -8,6 +8,7 @@ import { NoteWorkflowPanel } from '../../components/notes/note-workflow';
 import { DetectionStage, DETECTION_LAYERS } from '../../core/models/detection.model';
 import { emptyNoteWorkflow } from '../../core/models/note-workflow.model';
 import { Note } from '../../core/models/note.model';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { NotesPage } from './notes';
 
 describe('Fases de una incidencia nueva', () => {
@@ -16,6 +17,7 @@ describe('Fases de una incidencia nueva', () => {
   let http: HttpTestingController;
 
   beforeEach(async () => {
+    localStorage.removeItem('mine.ui.language');
     TestBed.configureTestingModule({
       imports: [NotesPage],
       providers: [
@@ -40,6 +42,7 @@ describe('Fases de una incidencia nueva', () => {
   afterEach(() => {
     http.verify();
     vi.restoreAllMocks();
+    localStorage.removeItem('mine.ui.language');
   });
 
   async function render() {
@@ -148,6 +151,18 @@ describe('Fases de una incidencia nueva', () => {
     editor('mitigation').form.controls.artifactType.setValue('Borrador de fase 4');
     fillIdentity();
     await render();
+    const originalForm = page.form;
+    const originalPanel = panel();
+    TestBed.inject(I18nService).setLanguage('en');
+    await render();
+    expect(page.form).toBe(originalForm);
+    expect(panel()).toBe(originalPanel);
+    expect(panel().isNew()).toBe(true);
+    expect(panel().selected()).toBe('mitigation');
+    expect(page.form.controls.title.value).toBe('Alerta nueva');
+    expect(editor('mitigation').form.controls.artifactType.value).toBe('Borrador de fase 4');
+    expect(fixture.nativeElement.textContent).toContain('Save incident');
+    http.expectNone((request) => request.url.startsWith('/api/notes'));
     await select('indications');
     const createButton = fixture.nativeElement.querySelector(
       '.identity button[type="submit"]',

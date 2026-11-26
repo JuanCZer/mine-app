@@ -43,7 +43,7 @@ public static class CatalogRegistry
         var keys = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Distinct(StringComparer.Ordinal).ToArray();
         if (keys.Length == 0 || keys.Any(key => !Tables.ContainsKey(key)))
-            throw new CatalogRequestException("Una o más claves de catálogo no son válidas.");
+            throw new CatalogRequestException("Una o más claves de catálogo no son válidas.", "catalog_keys_invalid");
         return keys;
     }
 }

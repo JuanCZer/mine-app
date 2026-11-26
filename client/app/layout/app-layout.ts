@@ -1,6 +1,9 @@
+import { Title } from '@angular/platform-browser';
+import { I18nService } from '../core/i18n/i18n.service';
 import {
   Component,
   computed,
+  effect,
   DestroyRef,
   ElementRef,
   HostListener,
@@ -29,6 +32,9 @@ const MOBILE_SIDEBAR_QUERY = '(max-width: 767px)';
   styleUrls: ['./app-layout.less', './app-layout-responsive.less'],
 })
 export class AppLayout {
+  readonly i18n = inject(I18nService);
+  get dictionary() { return this.i18n.dictionary(); }
+  private readonly title = inject(Title);
   @ViewChild('userMenuRoot') private userMenuRoot?: ElementRef<HTMLElement>;
   @ViewChild('userMenuTrigger') private userMenuTrigger?: ElementRef<HTMLButtonElement>;
   @ViewChild('sidebar') private sidebar?: ElementRef<HTMLElement>;
@@ -48,34 +54,42 @@ export class AppLayout {
   readonly sidebarExpanded = computed(() =>
     this.isMobile() ? this.mobileMenuOpen() : !this.sidebarCollapsed(),
   );
-  readonly pageTitle = signal('Incidencias');
+  private readonly pageTitleKey = signal('account.incidentsTitle');
+  readonly pageTitle = computed(() => this.i18n.text(this.pageTitleKey()));
   readonly currentUser = this.auth.user;
   readonly userMenuOpen = signal(false);
   readonly canManageUsers = computed(
     () => this.currentUser()?.role === 'administrador' && (this.currentUser()?.permissions ?? []).includes('users:provision'),
   );
   readonly logoutPending = signal(false);
-  readonly logoutError = signal('');
+  readonly logoutError = this.i18n.message();
 
   constructor() {
     const update = (url: string) => {
-      this.pageTitle.set(
-        url.startsWith('/mapa')
-          ? 'Mapa de incidencias'
+      let route = this.router.routerState.snapshot.root;
+      while (route.firstChild) route = route.firstChild;
+      const titleKey = route.data['titleKey'];
+      this.pageTitleKey.set(
+        typeof titleKey === 'string' ? titleKey :
+        url.startsWith('/mapa/incidencia/')
+          ? 'account.incidentDetailsTitle'
+          : url.startsWith('/mapa')
+          ? 'account.mapTitle'
           : url.startsWith('/historial')
-            ? 'Historial de incidencias'
+            ? 'account.historyTitle'
             : url.startsWith('/administracion/usuarios/nuevo')
-              ? 'Crear usuario'
+              ? 'account.createUser'
             : url.startsWith('/administracion/usuarios')
-              ? 'Administración de usuarios'
+              ? 'account.usersTitle'
               : url.startsWith('/cuenta/perfil')
-              ? 'Perfil de usuario'
+              ? 'account.profileTitle'
               : url.startsWith('/cuenta/contrasena')
-                ? 'Cambiar contraseña'
-                : 'Incidencias · 4 fases',
+                ? 'account.changePassword'
+                : 'account.incidentsTitle',
       );
     };
     update(this.router.url);
+    effect(() => this.title.setTitle(this.pageTitle()));
     this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
       if (event instanceof NavigationEnd) {
         update(event.urlAfterRedirects);
@@ -190,7 +204,7 @@ export class AppLayout {
       await this.auth.logout();
     } catch {
       this.logoutError.set(
-        'No se pudo confirmar el cierre de sesión. Verifica la conexión y vuelve a intentarlo.',
+        { key: 'account.logoutError' },
       );
     } finally {
       this.logoutPending.set(false);

@@ -19,7 +19,7 @@ public sealed class PostgresCatalogRepository(PostgresDataSources database, ILog
             foreach (var key in keys)
             {
                 if (!CatalogRegistry.TryGetTable(key, out var table))
-                    throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.");
+                    throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.", "catalog_key_invalid", parameters: new Dictionary<string, object?> { ["key"] = key });
 
                 // `table` comes only from CatalogRegistry's closed whitelist. User input is never interpolated.
                 var sql = $"""
@@ -59,7 +59,7 @@ public sealed class PostgresCatalogRepository(PostgresDataSources database, ILog
         CancellationToken cancellationToken)
     {
         if (!CatalogRegistry.TryGetTable(key, out var table))
-            throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.");
+            throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.", "catalog_key_invalid", parameters: new Dictionary<string, object?> { ["key"] = key });
         try
         {
             await using var connection = await database.Catalogs.OpenConnectionAsync(cancellationToken);

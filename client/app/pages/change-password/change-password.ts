@@ -1,5 +1,6 @@
+import { I18nService, Message } from '../../core/i18n/i18n.service';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -18,8 +19,10 @@ const passwordLength: ValidatorFn = (control) => {
   styleUrl: './change-password.less',
 })
 export class ChangePasswordPage {
+  readonly i18n = inject(I18nService);
+  get dictionary() { return this.i18n.dictionary(); }
   readonly loading = signal(false);
-  readonly error = signal('');
+  readonly error = this.i18n.message();
 
   readonly form = new FormGroup({
     currentPassword: new FormControl('', {
@@ -47,15 +50,15 @@ export class ChangePasswordPage {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.error.set(this.form.controls.newPassword.hasError('passwordLength')
-        ? 'La contraseña debe tener entre 15 y 128 caracteres.'
-        : 'Completa todos los campos para cambiar la contraseña.');
+        ? { key: 'account.passwordLength' }
+        : { key: 'account.passwordRequired' });
       return;
     }
 
     const { currentPassword, newPassword, confirmation } = this.form.getRawValue();
 
     if (newPassword !== confirmation) {
-      this.error.set('La confirmación debe coincidir exactamente con la nueva contraseña.');
+      this.error.set({ key: 'account.passwordConfirmation' });
       this.form.controls.confirmation.markAsTouched();
       return;
     }
@@ -72,9 +75,9 @@ export class ChangePasswordPage {
     }
   }
 
-  private describeError(error: unknown): string {
+  private describeError(error: unknown): Message {
     if (!(error instanceof HttpErrorResponse)) {
-      return 'No se pudo cambiar la contraseña. Inténtalo de nuevo.';
+      return { key: 'account.passwordError' };
     }
 
     const body = error.error && typeof error.error === 'object' ? error.error : {};
@@ -82,23 +85,23 @@ export class ChangePasswordPage {
 
     switch (code) {
       case 'current_password_invalid':
-        return 'La contraseña actual no coincide con la que tienes registrada.';
+        return { key: 'account.currentPasswordInvalid' };
       case 'password_reuse':
-        return 'La nueva contraseña ya se ha utilizado antes. Elige otra distinta.';
+        return { key: 'account.passwordReuse' };
       case 'csrf_invalid':
-        return 'La sesión ha caducado o el formulario ya no es válido. Vuelve a intentarlo.';
+        return { key: 'account.passwordCsrf' };
       case 'validation_failed':
-        return 'La nueva contraseña no cumple las reglas del sistema.';
+        return { key: 'account.passwordRules' };
       case 'authentication_required':
-        return 'Necesitas iniciar sesión para cambiar la contraseña.';
+        return { key: 'account.passwordAuthentication' };
       default:
         return error.status === 413
-          ? 'El formulario supera el tamaño permitido para esta operación.'
+          ? { key: 'account.formTooLarge' }
           : error.status === 429
-            ? 'Se ha alcanzado el límite de intentos. Espera antes de volver a intentarlo.'
+            ? { key: 'account.passwordRateLimit' }
             : error.status === 0
-              ? 'No fue posible conectar con el servidor. Verifica la red e intenta de nuevo.'
-              : 'No se pudo cambiar la contraseña. Inténtalo de nuevo.';
+              ? { key: 'account.networkError' }
+              : { key: 'account.passwordError' };
     }
   }
 }

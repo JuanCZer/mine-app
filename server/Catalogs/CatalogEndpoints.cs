@@ -18,11 +18,11 @@ public static class CatalogEndpoints
             }
             catch (CatalogRequestException exception)
             {
-                return Results.Json(new { error = exception.Message }, statusCode: exception.StatusCode);
+                return Results.Json(new { error = exception.Message, code = exception.Code, parameters = exception.Parameters }, statusCode: exception.StatusCode);
             }
             catch (CatalogUnavailableException)
             {
-                return Results.Json(new { error = "El servicio de catálogos no está disponible temporalmente." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+                return Results.Json(new { error = "El servicio de catálogos no está disponible temporalmente.", code = "catalog_unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
             }
         });
         return endpoints;

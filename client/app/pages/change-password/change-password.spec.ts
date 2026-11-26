@@ -3,6 +3,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { ChangePasswordPage } from './change-password';
 
 describe('ChangePasswordPage', () => {
@@ -11,6 +12,7 @@ describe('ChangePasswordPage', () => {
   let changePassword: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    localStorage.removeItem('mine.ui.language');
     changePassword = vi.fn();
     await TestBed.configureTestingModule({
       imports: [ReactiveFormsModule, ChangePasswordPage],
@@ -26,6 +28,24 @@ describe('ChangePasswordPage', () => {
     fixture = TestBed.createComponent(ChangePasswordPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  afterEach(() => localStorage.removeItem('mine.ui.language'));
+
+  it('translates a visible validation error without replacing a dirty password form', async () => {
+    component.form.setValue({ currentPassword: 'actual', newPassword: 'corta', confirmation: 'corta' });
+    component.form.markAsDirty();
+    await component.submit();
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('#newPassword');
+    TestBed.inject(I18nService).setLanguage('en');
+    fixture.detectChanges();
+    expect(component.error()).toContain('15 to 128');
+    expect(fixture.nativeElement.querySelector('#newPassword')).toBe(input);
+    expect(input.value).toBe('corta');
+    expect(component.form.dirty).toBe(true);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(changePassword).not.toHaveBeenCalled();
   });
 
   it('shows a length error when the new password is too short', () => {

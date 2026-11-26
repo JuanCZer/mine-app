@@ -199,25 +199,25 @@ var notes = app.MapGroup("/api/notes").RequireAuthorization();
 notes.AddEndpointFilter<CsrfFilter>();
 notes.AddEndpointFilter(async (context, next) => {
     try { return await next(context); }
-    catch (WorkflowException error) { return Results.Json(new { error = error.Message, issues = error.Issues }, statusCode: error.StatusCode); }
-    catch (CatalogUnavailableException) { return Results.Json(new { error = "El servicio de catálogos no está disponible temporalmente." }, statusCode: StatusCodes.Status503ServiceUnavailable); }
-    catch (NoteRepositoryUnavailableException) { return Results.Json(new { error = "El servicio de incidencias no está disponible temporalmente." }, statusCode: StatusCodes.Status503ServiceUnavailable); }
+    catch (WorkflowException error) { return Results.Json(new { error = error.Message, code = error.Code, parameters = error.Parameters, issues = error.Issues, issueDetails = error.IssueDetails }, statusCode: error.StatusCode); }
+    catch (CatalogUnavailableException) { return Results.Json(new { error = "El servicio de catálogos no está disponible temporalmente.", code = "catalog_unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable); }
+    catch (NoteRepositoryUnavailableException) { return Results.Json(new { error = "El servicio de incidencias no está disponible temporalmente.", code = "incident_service_unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable); }
 });
 notes.MapGet("/", async (HttpContext context, INoteRepository store) => Results.Ok(await store.List(CurrentUser.GetRequiredId(context.User).ToString(), context.RequestAborted)));
 notes.MapGet("/{id}", async (string id, HttpContext context, INoteRepository store) => {
     var note = await store.Get(CurrentUser.GetRequiredId(context.User).ToString(), id, context.RequestAborted);
-    return note is null ? Results.NotFound() : Results.Ok(note);
+    return note is null ? Results.NotFound(new { error = "La incidencia no existe.", code = "incident_not_found" }) : Results.Ok(note);
 });
-notes.MapPost("/", async (HttpContext context, INoteRepository store, NoteInput input) => Invalid(input) is { } error ? Results.BadRequest(new { error }) : Results.Ok(await store.Create(CurrentUser.GetRequiredId(context.User).ToString(), input, context.RequestAborted)));
-notes.MapPut("/{id}", async (string id, HttpContext context, INoteRepository store, NoteInput input) => { if (Invalid(input) is { } error) return Results.BadRequest(new { error }); var note = await store.Update(CurrentUser.GetRequiredId(context.User).ToString(), id, input, context.RequestAborted); return note is null ? Results.NotFound() : Results.Ok(note); });
-notes.MapDelete("/{id}", async (string id, int expectedRevision, HttpContext context, INoteRepository store) => await store.Delete(CurrentUser.GetRequiredId(context.User).ToString(), id, expectedRevision, context.RequestAborted) ? Results.NoContent() : Results.NotFound());
+notes.MapPost("/", async (HttpContext context, INoteRepository store, NoteInput input) => Invalid(input) is { } error ? Results.BadRequest(new { error = error.Text, code = error.Code, parameters = error.Parameters }) : Results.Ok(await store.Create(CurrentUser.GetRequiredId(context.User).ToString(), input, context.RequestAborted)));
+notes.MapPut("/{id}", async (string id, HttpContext context, INoteRepository store, NoteInput input) => { if (Invalid(input) is { } error) return Results.BadRequest(new { error = error.Text, code = error.Code, parameters = error.Parameters }); var note = await store.Update(CurrentUser.GetRequiredId(context.User).ToString(), id, input, context.RequestAborted); return note is null ? Results.NotFound(new { error = "La incidencia no existe.", code = "incident_not_found" }) : Results.Ok(note); });
+notes.MapDelete("/{id}", async (string id, int expectedRevision, HttpContext context, INoteRepository store) => await store.Delete(CurrentUser.GetRequiredId(context.User).ToString(), id, expectedRevision, context.RequestAborted) ? Results.NoContent() : Results.NotFound(new { error = "La incidencia no existe.", code = "incident_not_found" }));
 notes.MapPut("/{id}/phases/{stage}", async (string id, string stage, SavePhaseRequest request, HttpContext context, INoteRepository store) => {
     var note = await store.SavePhase(CurrentUser.GetRequiredId(context.User).ToString(), id, stage, request, context.RequestAborted);
-    return note is null ? Results.NotFound() : Results.Ok(note);
+    return note is null ? Results.NotFound(new { error = "La incidencia no existe.", code = "incident_not_found" }) : Results.Ok(note);
 });
 notes.MapPost("/{id}/phases/{stage}/validate", async (string id, string stage, ValidatePhaseRequest request, HttpContext context, INoteRepository store) => {
     var note = await store.ValidatePhase(CurrentUser.GetRequiredId(context.User).ToString(), id, stage, request, context.RequestAborted);
-    return note is null ? Results.NotFound() : Results.Ok(note);
+    return note is null ? Results.NotFound(new { error = "La incidencia no existe.", code = "incident_not_found" }) : Results.Ok(note);
 }).RequireAuthorization("CanValidatePhase");
 if (serveSpa)
 {
@@ -237,4 +237,17 @@ if (serveSpa)
 }
 app.Run();
 
-static string? Invalid(NoteInput input) { if (string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 120) return "El identificador de la incidencia es obligatorio y admite hasta 120 caracteres."; if (string.IsNullOrWhiteSpace(input.Content) || input.Content.Length > 10000) return "La descripción del indicio es obligatoria y admite hasta 10000 caracteres."; if (string.IsNullOrWhiteSpace(input.State) || input.State.Length > 100) return "El área o corredor de interés es obligatorio y admite hasta 100 caracteres."; if (input.Altitude is null || !double.IsFinite(input.Altitude.Value) || Math.Abs(input.Altitude.Value) > 90) return "La latitud debe estar entre -90 y 90."; if (input.Longitude is null || !double.IsFinite(input.Longitude.Value) || Math.Abs(input.Longitude.Value) > 180) return "La longitud debe estar entre -180 y 180."; return null; }
+static ApiMessage? Invalid(NoteInput input)
+{
+    if (string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 120)
+        return new("incident_title_invalid", "El identificador de la incidencia es obligatorio y admite hasta 120 caracteres.");
+    if (string.IsNullOrWhiteSpace(input.Content) || input.Content.Length > 10000)
+        return new("incident_description_invalid", "La descripción del indicio es obligatoria y admite hasta 10000 caracteres.");
+    if (string.IsNullOrWhiteSpace(input.State) || input.State.Length > 100)
+        return new("incident_area_invalid", "El área o corredor de interés es obligatorio y admite hasta 100 caracteres.");
+    if (input.Altitude is null || !double.IsFinite(input.Altitude.Value) || Math.Abs(input.Altitude.Value) > 90)
+        return new("latitude_invalid", "La latitud debe estar entre -90 y 90.");
+    if (input.Longitude is null || !double.IsFinite(input.Longitude.Value) || Math.Abs(input.Longitude.Value) > 180)
+        return new("longitude_invalid", "La longitud debe estar entre -180 y 180.");
+    return null;
+}

@@ -1,28 +1,53 @@
 <section class="intro">
-  <div><span>UBICACIÓN DE INCIDENCIAS</span><h2>Mapa de zonas de proximidad.</h2><p>Las zonas representan un radio de 1 km alrededor de cada incidencia.</p></div>
-  <a routerLink="/incidencias">＋ Registrar incidencia</a>
+  <div>
+    <span>{{ dictionary.map.eyebrow }}</span>
+    <h2>{{ dictionary.map.heading }}</h2>
+    <p>{{ dictionary.map.intro }}</p>
+  </div>
+  <a routerLink="/incidencias">{{ dictionary.map.register }}</a>
 </section>
 <section class="map-card">
   <div class="map-wrap">
-    <div #mapContainer class="map" aria-label="Mapa de incidencias por proximidad"></div>
-    @if (densityWarning()) { <div class="map-density-warning" role="status">{{ densityWarning() }}</div> }
-    @if (loading()) { <div class="overlay">Cargando mapa…</div> }
+    <div #mapContainer class="map" [attr.aria-label]="dictionary.map.mapLabel"></div>
+    @if (densityWarning()) {
+      <div class="map-density-warning" role="status">{{ densityWarning() }}</div>
+    }
+    @if (loading()) {
+      <div class="overlay">{{ dictionary.map.loading }}</div>
+    }
     @if (sectorError() || pointError() || mapError() || error()) {
       <div class="map-error" role="alert">
-        @if (sectorError()) { <p>{{ sectorError() }} <button type="button" (click)="retrySectors()">Reintentar</button></p> }
-        @if (pointError()) { <p>{{ pointError() }}</p> }
-        @if (mapError()) { <p>{{ mapError() }}</p> }
-        @if (error()) { <p>{{ error() }}</p> }
+        @if (sectorError()) {
+          <p>
+            {{ sectorError() }}
+            <button type="button" (click)="retrySectors()">{{ dictionary.common.retry }}</button>
+          </p>
+        }
+        @if (pointError()) {
+          <p>{{ pointError() }}</p>
+        }
+        @if (mapError()) {
+          <p>{{ mapError() }}</p>
+        }
+        @if (error()) {
+          <p>{{ error() }}</p>
+        }
       </div>
     }
   </div>
-  <aside class="legend" aria-label="Leyenda de cercanía por zona">
-    <strong>Cercanía 1 km</strong>
-    @if (totalIncidents() !== null) { <p>Total de incidencias geolocalizadas: {{ totalIncidents() }}</p> }
-    <p>Cada círculo cuenta incidencias distintas a 1 km de su centro, incluida la central. En zonas superpuestas se muestra el color del conteo más alto. Los conteos locales no se suman.</p>
-    <div class="legend-item"><span class="swatch green"></span>0–99</div>
-    <div class="legend-item"><span class="swatch yellow"></span>100–300</div>
-    <div class="legend-item"><span class="swatch orange"></span>301–599</div>
-    <div class="legend-item"><span class="swatch red"></span>600 o más</div>
+  <aside class="legend" [attr.aria-label]="dictionary.map.legendLabel">
+    <strong>{{ dictionary.map.proximity }}</strong>
+    @if (totalIncidents() !== null) {
+      <p>{{ i18n.format(dictionary.map.total, { count: i18n.number(totalIncidents()!) }) }}</p>
+    }
+    <p>{{ dictionary.map.legendHelp }}</p>
+    <div class="legend-item"><span class="swatch green"></span>{{ dictionary.map.rangeLow }}</div>
+    <div class="legend-item">
+      <span class="swatch yellow"></span>{{ dictionary.map.rangeMedium }}
+    </div>
+    <div class="legend-item"><span class="swatch orange"></span>{{ dictionary.map.rangeHigh }}</div>
+    <div class="legend-item">
+      <span class="swatch red"></span>{{ dictionary.map.rangeVeryHigh }}
+    </div>
   </aside>
 </section>

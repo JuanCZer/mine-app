@@ -119,8 +119,12 @@ class CatalogApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual([option['code'] for option in body['catalogs']['platforms']], ['if1200a'])
         self.assertNotIn('EOD', [option['code'] for option in body['catalogs']['sensors']])
-        self.assertEqual(self.request('GET', '/api/catalogs?keys=doesNotExist')[0], 400)
-        self.assertEqual(self.request('GET', '/api/catalogs?keys=soils&stage=unknown')[0], 400)
+        status, invalid = self.request('GET', '/api/catalogs?keys=doesNotExist')
+        self.assertEqual(status, 400)
+        self.assertEqual(invalid['code'], 'catalog_keys_invalid')
+        status, invalid = self.request('GET', '/api/catalogs?keys=soils&stage=unknown')
+        self.assertEqual(status, 400)
+        self.assertEqual(invalid['code'], 'catalog_stage_invalid')
 
     def test_case_form_catalogs_include_global_risk_levels_during_indications(self):
         keys = 'mexicoStates,soils,seasons,riskLevels'
@@ -190,6 +194,8 @@ class CatalogApiTests(unittest.TestCase):
         status, conflict = self.save_indications(complete_data('indications'))
         self.assertEqual(status, 409)
         self.assertIn('soil', conflict['issues'])
+        self.assertEqual(conflict['code'], 'catalog_selection_inactive')
+        self.assertEqual(conflict['parameters'], {'field': 'soil'})
 
 
 class PostgreSqlFailureTests(unittest.TestCase):
@@ -256,7 +262,8 @@ class PostgreSqlFailureTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 503)
         body = json.loads(caught.exception.read())
         caught.exception.close()
-        self.assertEqual(body, {'error': 'El servicio de catálogos no está disponible temporalmente.'})
+        self.assertEqual(body, {'error': 'El servicio de catálogos no está disponible temporalmente.',
+                                'code': 'catalog_unavailable'})
 
 
 if __name__ == '__main__':

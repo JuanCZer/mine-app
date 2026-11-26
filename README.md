@@ -69,6 +69,35 @@ El historial `/historial` muestra el avance de cada incidencia y permite abrir s
 
 El [panel local anterior](docs/detection-module.md) fue retirado: `/deteccion` redirige a `/incidencias`. Su archivo local anterior permanece intacto únicamente para recuperación y conciliación controladas.
 
+## Idiomas EN / ESP
+
+El selector junto al usuario conectado (y en acceso) cambia la interfaz sin recargar ni perder formularios, borradores o la vista del mapa. Español es el idioma inicial; la preferencia queda guardada en este navegador con la clave `mine.ui.language`. Si el navegador bloquea el almacenamiento, la selección funciona durante la sesión.
+
+Todos los textos de interfaz se editan en `client/app/core/i18n/`. El archivo [dictionary.ts](client/app/core/i18n/dictionary.ts) reúne los módulos:
+
+| Archivo | Textos |
+| --- | --- |
+| `account-dictionary.ts` | Encabezado, menú, acceso, perfil y usuarios |
+| `workflow-dictionary.ts` | Incidencias, fases, campos, ayudas y requisitos |
+| `map-dictionary.ts` | Mapa, ventanas, historial y ficha |
+| `api-dictionary.ts` | Errores del servidor, eventos y etiquetas estándar de catálogos |
+| `common-dictionary.ts` | Mensajes y acciones compartidas |
+
+Cada módulo exporta `es` y `en` con las mismas claves. Para cambiar un texto existente, modifica sus valores en ambos idiomas; no hace falta editar el HTML. Por ejemplo, el título de la primera fase está en `workflow.layers.indicationsTitle` y la vista lo consume como `{{ dictionary.workflow.layers.indicationsTitle }}`.
+
+Para añadir texto nuevo, agrega la misma clave a ambos diccionarios y úsala desde el componente:
+
+```ts
+readonly i18n = inject(I18nService);
+get dictionary() { return this.i18n.dictionary(); }
+```
+
+Usa `i18n.format(plantilla, { count })` para parámetros, `i18n.date()` / `i18n.number()` para formatos y `i18n.message()` con `{ key, params }` para avisos persistentes. Guardar una traducción resuelta en un aviso impediría que ese aviso se actualice al alternar el idioma. Las pruebas verifican claves y parámetros equivalentes en ES/EN.
+
+Los códigos internos, nombres, notas, evidencias y etiquetas históricas se conservan. Los catálogos estándar se presentan traducidos por código; las opciones desconocidas mantienen su etiqueta original. Los eventos nuevos incluyen metadatos traducibles, mientras que el historial anterior conserva su texto. Los errores del servidor añaden `code`, `parameters` e `issueDetails` sin eliminar los mensajes anteriores. No se requiere migración de base de datos para este cambio.
+
+Cambiar EN/ESP es inmediato. **Editar el diccionario en código requiere compilar y desplegar la nueva versión.** El [plan de implementación](docs/superpowers/plans/2026-11-25-language-dictionary.md) detalla el alcance y la verificación.
+
 ## Verificar
 
 ```bash

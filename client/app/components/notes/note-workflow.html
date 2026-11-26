@@ -1,16 +1,15 @@
-<section class="workflow" aria-label="Progreso de las cuatro fases de la incidencia">
+<section class="workflow" [attr.aria-label]="dictionary.workflow.panel.label">
   <div class="heading">
     <div>
-      <span>SEGUIMIENTO DE INCIDENCIA</span>
-      <h2>Progreso por fases</h2>
+      <span>{{ dictionary.workflow.panel.kicker }}</span>
+      <h2>{{ dictionary.workflow.panel.heading }}</h2>
     </div>
-    <strong>{{ completed() }} de 4 validadas</strong>
+    <strong>{{
+      i18n.format(dictionary.workflow.panel.completed, { count: i18n.number(completed()) })
+    }}</strong>
   </div>
-  <p class="intro">
-    Puedes cambiar entre fases sin completarlas ni validarlas. Los requisitos pendientes se muestran
-    en cada fase y los cambios que escribas se conservan mientras permaneces en esta incidencia.
-  </p>
-  <ol class="progress-track" aria-label="Secuencia de fases de la incidencia">
+  <p class="intro">{{ dictionary.workflow.panel.intro }}</p>
+  <ol class="progress-track" [attr.aria-label]="dictionary.workflow.panel.sequenceLabel">
     @for (layer of layers; track layer.id; let index = $index) {
       <li
         [class.active]="note() && selected() === layer.id"
@@ -25,7 +24,7 @@
         >
           <span class="number">{{ isValidated(layer.id) ? '✓' : index + 1 }}</span>
           <span class="phase-copy"
-            ><small>FASE {{ index + 1 }}</small
+            ><small>{{ i18n.format(dictionary.workflow.panel.phase, { phase: index + 1 }) }}</small
             ><b>{{ layer.title }}</b
             ><em>{{ phaseStatus(layer.id) }}</em></span
           >
@@ -33,21 +32,12 @@
       </li>
     }
   </ol>
-  <p class="sequence">
-    La validación formal mantiene el orden: indicios → reconocimiento → vigilancia → mitigación.
-    Guarda los borradores para conservarlos al salir de la incidencia.
-  </p>
+  <p class="sequence">{{ dictionary.workflow.panel.sequence }}</p>
   @if (isNew()) {
-    <p class="sequence" role="status">
-      Incidencia nueva: puedes recorrer y completar las cuatro fases desde ahora. Para guardar,
-      completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Después guarda el
-      borrador de cada fase que hayas editado.
-    </p>
+    <p class="sequence" role="status">{{ dictionary.workflow.panel.newHint }}</p>
   }
   @if (error()) {
-    <p class="error" role="alert">
-      {{ error() }} Puedes usar «Recargar incidencias» para obtener la versión actual.
-    </p>
+    <p class="error" role="alert">{{ error() }} {{ dictionary.workflow.panel.reloadHint }}</p>
   }
   @if (message()) {
     <p class="success" role="status">{{ message() }}</p>
@@ -57,10 +47,10 @@
       <div class="closed">
         {{
           workflow().status === 'closed'
-            ? 'Proceso completado: las cuatro fases fueron validadas.'
-            : 'Incidencia cerrada como falso positivo. Todos sus datos quedan en modo de consulta.'
+            ? dictionary.workflow.panel.closed
+            : dictionary.workflow.panel.discarded
         }}
-        Puedes consultar los datos y las validaciones anteriores.
+        {{ dictionary.workflow.panel.consult }}
       </div>
     }
     @if (visited().includes('indications')) {
@@ -75,9 +65,7 @@
           [busy]="busy() || parentBusy()"
           [basePending]="isNew() || basePending()"
           [basePendingMessage]="
-            isNew()
-              ? 'Para guardar este borrador, completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Puedes cambiar de fase mientras tanto.'
-              : 'Guarda primero los cambios en los datos generales de la incidencia.'
+            isNew() ? dictionary.workflow.panel.baseNew : dictionary.workflow.panel.basePending
           "
           (saved)="save($event)"
           (validated)="validate()"
@@ -99,9 +87,7 @@
             [busy]="busy() || parentBusy()"
             [basePending]="isNew() || basePending()"
             [basePendingMessage]="
-              isNew()
-                ? 'Para guardar este borrador, completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Puedes cambiar de fase mientras tanto.'
-                : 'Guarda primero los cambios en los datos generales de la incidencia.'
+              isNew() ? dictionary.workflow.panel.baseNew : dictionary.workflow.panel.basePending
             "
             (saved)="save($event)"
             (validated)="validate()"
@@ -111,20 +97,23 @@
     }
     @if (workflow().history.length) {
       <details>
-        <summary>Historial de guardados y validaciones ({{ workflow().history.length }})</summary>
+        <summary>
+          {{
+            i18n.format(dictionary.workflow.panel.history, {
+              count: i18n.number(workflow().history.length),
+            })
+          }}
+        </summary>
         <app-case-timeline
           [events]="workflow().history"
-          [subtitle]="'Registro de la API · responsables declarados'"
+          [subtitle]="dictionary.workflow.panel.historySubtitle"
         />
       </details>
     }
   } @else if (showEmpty()) {
     <div class="empty">
-      <strong>Registra primero los datos de la fase 1: indicios tempranos.</strong>
-      <p>
-        Después podrás navegar entre las cuatro fases y guardar borradores, aunque falten campos o
-        validaciones anteriores.
-      </p>
+      <strong>{{ dictionary.workflow.panel.emptyHeading }}</strong>
+      <p>{{ dictionary.workflow.panel.emptyHint }}</p>
     </div>
   }
 </section>

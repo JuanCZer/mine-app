@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import {
   Component,
   computed,
@@ -9,14 +10,14 @@ import {
   viewChildren,
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { DetectionStage, DETECTION_LAYERS } from '../../core/models/detection.model';
+import { DetectionStage, detectionLayers } from '../../core/models/detection.model';
 import { Note } from '../../core/models/note.model';
 import {
   emptyNoteWorkflow,
   NotePhaseData,
   notePhaseIssues,
 } from '../../core/models/note-workflow.model';
-import { noteError, NotesService } from '../../core/services/notes.service';
+import { NotesService } from '../../core/services/notes.service';
 import { CaseTimeline } from '../detection/case-timeline';
 import { NotePhaseEditor } from './note-phase-editor';
 
@@ -27,6 +28,10 @@ import { NotePhaseEditor } from './note-phase-editor';
   styleUrl: './note-workflow.less',
 })
 export class NoteWorkflowPanel {
+  readonly i18n = inject(I18nService);
+  get dictionary() {
+    return this.i18n.dictionary();
+  }
   readonly note = input<Note | null>(null);
   readonly isNew = input(false);
   // Stable through the first server save; changes when the user starts another editing session.
@@ -39,7 +44,9 @@ export class NoteWorkflowPanel {
   readonly dirtyChange = output<boolean>();
   readonly busyChange = output<boolean>();
   private readonly service = inject(NotesService);
-  readonly layers = DETECTION_LAYERS;
+  get layers() {
+    return detectionLayers(this.dictionary.workflow);
+  }
   readonly workflow = computed(() => this.note()?.workflow ?? emptyNoteWorkflow());
   readonly selected = signal<DetectionStage>('indications');
   readonly visited = signal<DetectionStage[]>(['indications']);
@@ -50,8 +57,8 @@ export class NoteWorkflowPanel {
   );
   readonly busy = signal(false);
   readonly editorDirty = computed(() => this.editors().some((editor) => editor.dirty()));
-  readonly message = signal('');
-  readonly error = signal('');
+  readonly message = this.i18n.message();
+  readonly error = this.i18n.message();
   private noteContext: string | number | null = null;
 
   constructor() {
@@ -82,24 +89,28 @@ export class NoteWorkflowPanel {
     return this.editors().find((editor) => editor.phase().stage === stage);
   }
   phaseStatus(stage: DetectionStage): string {
-    if (!this.note()) return 'Registra la incidencia';
-    if (this.isValidated(stage)) return 'Validada';
-    if (this.workflow().status !== 'open') return 'Sin validar · solo lectura';
+    if (!this.note()) return this.dictionary.workflow.panel.register;
+    if (this.isValidated(stage)) return this.dictionary.workflow.panel.validated;
+    if (this.workflow().status !== 'open') return this.dictionary.workflow.panel.readOnly;
     const phase = this.workflow().phases.find((phase) => phase.stage === stage)!;
     const count = (
-      this.editorFor(stage)?.issues() ?? notePhaseIssues(this.note()!, stage, phase.data)
+      this.editorFor(stage)?.issues() ??
+      notePhaseIssues(this.note()!, stage, phase.data, this.dictionary.workflow)
     ).length;
     return count
-      ? `${count} requisito${count === 1 ? '' : 's'} pendiente${count === 1 ? '' : 's'}`
-      : 'Completa · sin validar';
+      ? this.i18n.format(
+          count === 1
+            ? this.dictionary.workflow.panel.pendingOne
+            : this.dictionary.workflow.panel.pendingMany,
+          { count: this.i18n.number(count) },
+        )
+      : this.dictionary.workflow.panel.complete;
   }
   validationBlockedReason(stage: DetectionStage): string {
-    if (this.isNew())
-      return 'Guarda la incidencia antes de validar sus fases. Puedes seguir capturando datos y cambiar de fase.';
-    if (this.workflow().currentStage !== stage)
-      return 'Para validar esta fase, valida primero las anteriores. Puedes capturar datos y cambiar de fase sin hacerlo.';
+    if (this.isNew()) return this.dictionary.workflow.panel.blockedNew;
+    if (this.workflow().currentStage !== stage) return this.dictionary.workflow.panel.blockedOrder;
     if (this.editors().some((editor) => editor.phase().stage !== stage && editor.dirty()))
-      return 'Guarda los borradores pendientes de las otras fases antes de validar.';
+      return this.dictionary.workflow.panel.blockedDrafts;
     return '';
   }
   isValidated(stage: DetectionStage) {
@@ -127,9 +138,7 @@ export class NoteWorkflowPanel {
       const updated = await firstValueFrom(this.service.savePhase(note, this.selected(), data));
       this.editor()?.markSaved();
       this.updated.emit(updated);
-      this.message.set(
-        'Borrador guardado. Puedes cambiar de fase; los requisitos pendientes siguen sin validar.',
-      );
+      this.message.set({ key: 'workflow.panel.draftSaved' });
     });
   }
   async validate() {
@@ -155,10 +164,10 @@ export class NoteWorkflowPanel {
       }
       this.message.set(
         updated.workflow?.status === 'closed'
-          ? 'Las cuatro fases están validadas. Proceso cerrado.'
+          ? { key: 'workflow.panel.processClosed' }
           : updated.workflow?.status === 'discarded'
-            ? 'Dictamen validado. Incidencia cerrada como falso positivo.'
-            : 'Fase validada. Puedes continuar con los requisitos pendientes de las demás fases.',
+            ? { key: 'workflow.panel.falsePositiveClosed' }
+            : { key: 'workflow.panel.phaseValidated' },
       );
     });
   }
@@ -169,7 +178,7 @@ export class NoteWorkflowPanel {
     try {
       await action();
     } catch (error) {
-      this.error.set(noteError(error));
+      this.error.set(this.i18n.errorRef(error));
     } finally {
       this.busy.set(false);
     }

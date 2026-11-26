@@ -1,5 +1,7 @@
+import { I18nService } from '../../core/i18n/i18n.service';
+import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { safeReturnUrl } from '../../core/guards/auth.guard';
@@ -12,8 +14,11 @@ import { AuthService } from '../../core/services/auth.service';
   styleUrl: './login.less',
 })
 export class LoginPage {
+  readonly i18n = inject(I18nService);
+  get dictionary() { return this.i18n.dictionary(); }
+  private readonly title = inject(Title);
   readonly loading = signal(false);
-  readonly error = signal('');
+  readonly error = this.i18n.message();
   readonly form = new FormGroup({
     username: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -22,7 +27,9 @@ export class LoginPage {
     private readonly auth: AuthService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
-  ) {}
+  ) {
+    effect(() => this.title.setTitle(this.dictionary.account.loginTitle));
+  }
   get sessionUnavailable(): boolean {
     return this.auth.state() === 'unavailable';
   }
@@ -39,13 +46,13 @@ export class LoginPage {
       this.error.set(
         error instanceof HttpErrorResponse
           ? error.status === 401
-            ? 'Usuario o contraseña incorrectos.'
+            ? { key: 'account.incorrectCredentials' }
             : error.status === 429
-              ? 'Se alcanzó el límite de intentos. Espera un minuto antes de reintentar.'
+              ? { key: 'account.loginRateLimit' }
               : error.status === 0
-                ? 'No fue posible conectar con el servidor. Verifica la red e intenta de nuevo.'
-                : 'No fue posible iniciar sesión. Intenta de nuevo.'
-          : 'No fue posible iniciar sesión. Intenta de nuevo.',
+                ? { key: 'account.networkError' }
+                : { key: 'account.loginError' }
+          : { key: 'account.loginError' },
       );
     } finally {
       this.loading.set(false);

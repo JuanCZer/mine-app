@@ -127,7 +127,7 @@ public sealed class PostgresNoteRepository(
                 await command.ExecuteNonQueryAsync(cancellationToken);
             }
 
-            await InsertEventAsync(connection, transaction, incidentId, userId, "Incidencia registrada. Las cuatro fases están disponibles para captura.", 0, cancellationToken);
+            await InsertEventAsync(connection, transaction, incidentId, userId, WorkflowEventMessages.Created(), 0, cancellationToken);
             await InsertAuditAsync(connection, transaction, userId, incidentId, "incident.create", "succeeded", 0, cancellationToken);
             var created = (await LoadAsync(connection, transaction, userId, publicId, false, cancellationToken))!.Note;
             await transaction.CommitAsync(cancellationToken);
@@ -139,7 +139,7 @@ public sealed class PostgresNoteRepository(
         {
             WorkflowRules.CheckRevision(loaded.Note, input.ExpectedRevision);
             if (loaded.Note.Workflow!.Phases.Any(phase => phase.ValidatedAt is not null))
-                throw new WorkflowException("El registro inicial está vinculado a una fase validada y es de solo lectura.");
+                throw new WorkflowException("El registro inicial está vinculado a una fase validada y es de solo lectura.", "initial_record_read_only");
             await using var command = Command("""
                 UPDATE app.incidents
                 SET title=@title, content=@content, area_of_interest=@area, latitude=@latitude, longitude=@longitude,
@@ -195,7 +195,7 @@ public sealed class PostgresNoteRepository(
             await SavePhaseDataAsync(connection, transaction, phaseId, stage, request.Data, UserGuid(userId), null, cancellationToken);
             var revision = await IncrementRevisionAsync(connection, transaction, loaded.InternalId, loaded.Note.Revision, null, cancellationToken);
             var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, $"Borrador guardado: fase {number}. Pendiente de validación.", revision, cancellationToken, request.Data.Review.Reviewer);
+            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, WorkflowEventMessages.Saved(number), revision, cancellationToken, request.Data.Review.Reviewer);
             await InsertAuditAsync(connection, transaction, userId, loaded.InternalId, "phase.save", "succeeded", revision, cancellationToken, stage);
         }, cancellationToken);
 
@@ -203,7 +203,7 @@ public sealed class PostgresNoteRepository(
     {
         var actorUserId = UserGuid(userId);
         if (actorUserId is null)
-            throw new WorkflowException("Se requiere un usuario autenticado para validar una fase.", 403);
+            throw new WorkflowException("Se requiere un usuario autenticado para validar una fase.", "phase_authentication_required", 403);
 
         return Mutate(userId, id, async (connection, transaction, loaded) =>
         {
@@ -217,8 +217,8 @@ public sealed class PostgresNoteRepository(
                 (key, code, selectedStage, token) => FindCatalogInTransactionAsync(
                     connection, transaction, key, code, selectedStage, token),
                 cancellationToken);
-            var issues = WorkflowRules.ValidationIssues(loaded.Note, stage, phase.Data);
-            if (issues.Count > 0) throw new WorkflowException("La fase no cumple los requisitos de validación.", 422, issues);
+            var issues = WorkflowRules.ValidationIssueDetails(loaded.Note, stage, phase.Data);
+            if (issues.Count > 0) throw new WorkflowException("La fase no cumple los requisitos de validación.", "phase_validation_failed", 422, issueDetails: issues);
 
             var phaseId = loaded.PhaseIds[stage];
             var now = DateTimeOffset.UtcNow;
@@ -244,8 +244,8 @@ public sealed class PostgresNoteRepository(
             var status = stage == "mitigation" ? "closed" : stage == "reconnaissance" && phase.Data.Review.Finding == "false-positive" ? "discarded" : "open";
             await IncrementRevisionAsync(connection, transaction, loaded.InternalId, loaded.Note.Revision, status, cancellationToken);
             var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-            var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Siguiente validación: fase {number + 1}.";
-            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, text, revision, cancellationToken, phase.Data.Review.Reviewer);
+            var message = WorkflowEventMessages.Validated(number, status);
+            await InsertEventAsync(connection, transaction, loaded.InternalId, userId, message, revision, cancellationToken, phase.Data.Review.Reviewer);
             await InsertAuditAsync(connection, transaction, userId, loaded.InternalId, "phase.validate", "succeeded", revision, cancellationToken, stage);
         }, cancellationToken);
     }
@@ -299,7 +299,7 @@ public sealed class PostgresNoteRepository(
         return (int)value;
     }
 
-    private static WorkflowException Conflict() => new("La incidencia cambió. Recarga la versión actual antes de guardar o validar.");
+    private static WorkflowException Conflict() => new("La incidencia cambió. Recarga la versión actual antes de guardar o validar.", "incident_revision_conflict");
     private static void EnsureOne(int affected) { if (affected != 1) throw Conflict(); }
 
     private sealed record LoadedNote(Guid InternalId, Note Note, IReadOnlyDictionary<string, Guid> PhaseIds);
@@ -405,7 +405,7 @@ public sealed class PostgresNoteRepository(
         var history = new List<WorkflowEvent>();
         await using (var command = Command("""
             SELECT COALESCE(e.client_id, e.id::text), occurred_at,
-                   COALESCE(e.legacy_actor_name, e.actor_user_id::text, 'Sistema'), event_text
+                   COALESCE(e.legacy_actor_name, e.actor_user_id::text, 'Sistema'), event_text, metadata::text
             FROM app.incident_events e
             WHERE e.incident_id=@incident_id
             ORDER BY e.occurred_at DESC, e.id DESC
@@ -416,7 +416,15 @@ public sealed class PostgresNoteRepository(
             command.Parameters.AddWithValue("history_limit", _maximumHistoryResults);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
-                history.Add(new WorkflowEvent(reader.GetString(0), Timestamp(reader, 1), reader.GetString(2), reader.GetString(3)));
+            {
+                // Legacy metadata has no localization reference; keep its original event_text.
+                using var metadata = JsonDocument.Parse(reader.GetString(4));
+                var hasCode = metadata.RootElement.ValueKind == JsonValueKind.Object
+                    && metadata.RootElement.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String;
+                var reference = hasCode ? JsonSerializer.Deserialize<MessageReference>(reader.GetString(4), Json) : null;
+                history.Add(new WorkflowEvent(reader.GetString(0), Timestamp(reader, 1), reader.GetString(2), reader.GetString(3),
+                    reference?.Code, reference?.Parameters));
+            }
         }
         history.Reverse();
 
@@ -453,7 +461,7 @@ public sealed class PostgresNoteRepository(
         {
             "indications" => "phase_indications", "reconnaissance" => "phase_reconnaissance",
             "surveillance" => "phase_surveillance", "mitigation" => "phase_mitigation",
-            _ => throw new WorkflowException("La fase indicada no existe.", 400)
+            _ => throw new WorkflowException("La fase indicada no existe.", "phase_not_found", 400)
         };
         var signatures = stage == "indications" ? await LoadCodesAsync(connection, transaction,
             "SELECT signature_code FROM app.phase_indication_signatures WHERE phase_id=@phase_id ORDER BY signature_code", phaseId, cancellationToken) : [];
@@ -532,7 +540,7 @@ public sealed class PostgresNoteRepository(
         CancellationToken cancellationToken)
     {
         if (!CatalogRegistry.TryGetTable(key, out var table))
-            throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.");
+            throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.", "catalog_key_invalid", parameters: new Dictionary<string, object?> { ["key"] = key });
 
         // The table identifier comes from CatalogRegistry's closed whitelist. FOR SHARE
         // prevents an administrator from changing vigencia/label until this save commits.
@@ -603,7 +611,7 @@ public sealed class PostgresNoteRepository(
             case "reconnaissance": await SaveReconnaissanceAsync(connection, transaction, phaseId, data.Reconnaissance ?? ReconnaissanceIntake.Empty(), cancellationToken); break;
             case "surveillance": await SaveSurveillanceAsync(connection, transaction, phaseId, data.Surveillance ?? SurveillanceIntake.Empty(), legacyTimeZoneId, cancellationToken); break;
             case "mitigation": await SaveMitigationAsync(connection, transaction, phaseId, data.Mitigation ?? MitigationIntake.Empty(), cancellationToken); break;
-            default: throw new WorkflowException("La fase indicada no existe.", 400);
+            default: throw new WorkflowException("La fase indicada no existe.", "phase_not_found", 400);
         }
 
         await using (var delete = Command("DELETE FROM app.phase_evidence WHERE phase_id=@phase_id", connection, transaction))
@@ -778,21 +786,22 @@ public sealed class PostgresNoteRepository(
 
     private static async Task InsertEventAsync(
         NpgsqlConnection connection, NpgsqlTransaction transaction, Guid incidentId, string userId,
-        string text, int revision, CancellationToken cancellationToken, string? legacyDisplayName = null)
+        ApiMessage message, int revision, CancellationToken cancellationToken, string? legacyDisplayName = null)
     {
         var actor = UserGuid(userId);
         var eventId = Guid.NewGuid();
         await using var command = Command("""
             INSERT INTO app.incident_events
                 (id, incident_id, client_id, occurred_at, actor_user_id, legacy_actor_name, event_text, incident_revision, origin, metadata)
-            VALUES (@id,@incident_id,@client_id,now(),@actor_id,@legacy_name,@text,@revision,@origin,'{}'::jsonb)
+            VALUES (@id,@incident_id,@client_id,now(),@actor_id,@legacy_name,@text,@revision,@origin,@metadata)
             """, connection, transaction);
         command.Parameters.AddWithValue("id", eventId);
         command.Parameters.AddWithValue("incident_id", incidentId);
         command.Parameters.AddWithValue("client_id", eventId.ToString("N"));
         AddGuid(command, "actor_id", actor);
         AddText(command, "legacy_name", actor is null ? (EmptyToNull(legacyDisplayName) ?? userId) : null);
-        command.Parameters.AddWithValue("text", text);
+        command.Parameters.AddWithValue("text", message.Text);
+        command.Parameters.Add("metadata", NpgsqlDbType.Jsonb).Value = JsonSerializer.Serialize(message.Reference, Json);
         command.Parameters.AddWithValue("revision", revision);
         command.Parameters.AddWithValue("origin", actor is null ? "legacy" : "authenticated");
         await command.ExecuteNonQueryAsync(cancellationToken);

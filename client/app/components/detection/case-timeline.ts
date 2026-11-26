@@ -1,19 +1,19 @@
-import { DatePipe } from '@angular/common';
-import { Component, computed, input } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { Component, computed, inject, input } from '@angular/core';
 import { CaseEvent } from '../../core/models/detection.model';
 
 @Component({
   selector: 'app-case-timeline',
-  imports: [DatePipe],
+  imports: [],
   template: `
     <section>
-      <h3>Bitácora del expediente</h3>
-      <p>{{ subtitle() }}</p>
+      <h3>{{ dictionary.workflow.timeline.heading }}</h3>
+      <p>{{ subtitle() || dictionary.workflow.timeline.subtitle }}</p>
       <ol>
         @for (event of recent(); track event.id) {
           <li>
-            <time>{{ event.at | date: 'dd/MM/yyyy · HH:mm' }}</time
-            ><strong>{{ event.text }}</strong
+            <time>{{ i18n.date(event.at) }}</time
+            ><strong>{{ eventText(event) }}</strong
             ><span>{{ event.actor }}</span>
           </li>
         }
@@ -82,11 +82,41 @@ import { CaseEvent } from '../../core/models/detection.model';
       font-size: 10px;
       color: #7d8776;
     }
-    section { border-color: var(--line); background: var(--surface); }.section, h3 { color: var(--text); } p, time, span { color: var(--text-muted); } strong { color: var(--text-secondary); font-size: 12px; } li { border-left-color: var(--line-strong); } li:before { background: var(--accent); }
+    section {
+      border-color: var(--line);
+      background: var(--surface);
+    }
+    .section,
+    h3 {
+      color: var(--text);
+    }
+    p,
+    time,
+    span {
+      color: var(--text-muted);
+    }
+    strong {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    li {
+      border-left-color: var(--line-strong);
+    }
+    li:before {
+      background: var(--accent);
+    }
   `,
 })
 export class CaseTimeline {
-  readonly subtitle = input('Historial local · responsables declarados');
+  readonly i18n = inject(I18nService);
+  get dictionary() {
+    return this.i18n.dictionary();
+  }
+  readonly subtitle = input('');
   readonly events = input<CaseEvent[]>([]);
+  eventText(event: CaseEvent): string {
+    const key = `api.events.${event.code}`;
+    return event.code && this.i18n.has(key) ? this.i18n.text(key, event.parameters) : event.text;
+  }
   readonly recent = computed(() => [...this.events()].reverse());
 }

@@ -2,84 +2,84 @@
   <section class="panel">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">ADMINISTRACIÓN</span>
-        <h1>{{ createMode ? 'Crear usuario' : 'Usuarios' }}</h1>
+        <span class="eyebrow">{{ dictionary.account.administration }}</span>
+        <h1>{{ createMode ? dictionary.account.createUser : dictionary.account.users }}</h1>
       </div>
-      @if (!createMode) { <div class="total">{{ total() }} registros</div> }
+      @if (!createMode) { <div class="total">{{ i18n.format(total() === 1 ? dictionary.account.singleRecord : dictionary.account.recordCount, { count: i18n.number(total()) }) }}</div> }
     </div>
 
     @if (!canManageUsers()) {
       <div class="state muted" role="alert">
-        No tienes permisos para gestionar usuarios.
+        {{ dictionary.account.permissionDenied }}
       </div>
     } @else {
       @if (rolesError()) {
-        <div class="state error" role="alert" data-role-error>{{ rolesError() }} <button type="button" (click)="loadRoles()">Reintentar</button></div>
+        <div class="state error" role="alert" data-role-error>{{ rolesError() }} <button type="button" (click)="loadRoles()">{{ dictionary.account.retry }}</button></div>
       }
       @if (!createMode) {
       <div class="toolbar">
         <form class="filters" [formGroup]="filters" (ngSubmit)="submitFilters()">
           <label class="field">
-            <span>Buscar</span>
-            <input formControlName="search" placeholder="Usuario o nombre" />
+            <span>{{ dictionary.account.search }}</span>
+            <input formControlName="search" [placeholder]="dictionary.account.searchPlaceholder" />
           </label>
           <label class="field">
-            <span>Rol</span>
+            <span>{{ dictionary.account.role }}</span>
             <select formControlName="role">
-              <option value="">Todos</option>
+              <option value="">{{ dictionary.account.all }}</option>
               @for (role of roles(); track role.code) {
-                <option [value]="role.code">{{ role.label }}</option>
+                <option [value]="role.code">{{ roleLabel(role.code, role.label) }}</option>
               }
             </select>
           </label>
           <label class="field">
-            <span>Estado</span>
+            <span>{{ dictionary.account.status }}</span>
             <select formControlName="status">
-              <option value="">Todos</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
+              <option value="">{{ dictionary.account.all }}</option>
+              <option value="active">{{ dictionary.account.activePlural }}</option>
+              <option value="inactive">{{ dictionary.account.inactivePlural }}</option>
             </select>
           </label>
-          <button type="submit" class="primary">Aplicar</button>
+          <button type="submit" class="primary">{{ dictionary.account.apply }}</button>
         </form>
       </div>
 
       }
       <div class="composer">
         <label class="field">
-          <span>Contraseña de administrador para confirmar la siguiente operación</span>
+          <span>{{ dictionary.account.adminPasswordLabel }}</span>
           <input type="password" [formControl]="adminPassword" autocomplete="current-password" />
         </label>
-        <p>Se solicitará de nuevo para cada cambio.</p>
+        <p>{{ dictionary.account.adminPasswordHint }}</p>
         @if (createMode) {
-        <h2>Datos del usuario</h2>
+        <h2>{{ dictionary.account.userDetails }}</h2>
         <form [formGroup]="createForm" (ngSubmit)="submitCreate()" class="create-form">
           <fieldset [disabled]="!!pendingCreation() || submitting()">
           <label class="field">
-            <span>Usuario</span>
-            <input formControlName="username" placeholder="usuario" />
+            <span>{{ dictionary.account.username }}</span>
+            <input formControlName="username" [placeholder]="dictionary.account.usernamePlaceholder" />
           </label>
           <label class="field">
-            <span>Nombre visible</span>
-            <input formControlName="displayName" placeholder="Nombre completo" />
+            <span>{{ dictionary.account.displayName }}</span>
+            <input formControlName="displayName" [placeholder]="dictionary.account.fullName" />
           </label>
           <label class="field">
-            <span>Rol</span>
+            <span>{{ dictionary.account.role }}</span>
             <select formControlName="role">
-              <option value="">Selecciona un rol</option>
+              <option value="">{{ dictionary.account.selectRole }}</option>
               @for (role of roles(); track role.code) {
-                <option [value]="role.code">{{ role.label }}</option>
+                <option [value]="role.code">{{ roleLabel(role.code, role.label) }}</option>
               }
             </select>
           </label>
           </fieldset>
           <button class="primary" type="submit" [disabled]="submitting() || !!temporaryPassword() || !!rolesError()">
-            {{ submitting() ? 'Creando…' : 'Crear usuario' }}
+            {{ submitting() ? dictionary.account.creating : dictionary.account.createUser }}
           </button>
         </form>
         @if (pendingCreation() && !temporaryPassword()) {
-          <p>La creación sigue pendiente. Reintenta con los mismos datos o cancela para iniciar otra.</p>
-          <button type="button" [disabled]="submitting()" (click)="cancelCreation()">Cancelar solicitud pendiente</button>
+          <p>{{ dictionary.account.creationPending }}</p>
+          <button type="button" [disabled]="submitting()" (click)="cancelCreation()">{{ dictionary.account.cancelPending }}</button>
         }
         }
       </div>
@@ -94,50 +94,50 @@
 
       <dialog #confirmDialog aria-labelledby="confirm-change-title" (cancel)="$event.preventDefault(); cancelChange()">
         @if (pendingChange(); as change) {
-          <h2 id="confirm-change-title">Confirmar cambio</h2>
+          <h2 id="confirm-change-title">{{ dictionary.account.confirmChange }}</h2>
           <p>
             @if (change.role) {
-              Cambiar el rol de {{ change.user.displayName }} a {{ change.role }}.
+              {{ i18n.format(dictionary.account.confirmRoleChange, { name: change.user.displayName, role: roleLabel(change.role) }) }}
             } @else {
-              {{ change.status === 'active' ? 'Activar' : 'Desactivar' }} la cuenta de {{ change.user.displayName }}.
+              {{ i18n.format(change.status === 'active' ? dictionary.account.confirmActivate : dictionary.account.confirmDeactivate, { name: change.user.displayName }) }}
             }
           </p>
           <div class="actions">
-            <button type="button" (click)="cancelChange()">Cancelar</button>
-            <button type="button" class="primary" (click)="confirmChange()">Confirmar cambio</button>
+            <button type="button" (click)="cancelChange()">{{ dictionary.account.cancel }}</button>
+            <button type="button" class="primary" (click)="confirmChange()">{{ dictionary.account.confirmChange }}</button>
           </div>
         }
       </dialog>
 
       <dialog #resetDialog aria-labelledby="confirm-reset-title" (cancel)="$event.preventDefault(); cancelResetConfirmation()">
         @if (resetConfirmation(); as user) {
-          <h2 id="confirm-reset-title">Restablecer contraseña</h2>
-          <p>Se invalidará la contraseña y las sesiones de {{ user.displayName }}. Se generará una contraseña temporal que deberá cambiar al iniciar sesión.</p>
-          <p>Confirma la operación con tu contraseña de administrador en el campo de la página.</p>
+          <h2 id="confirm-reset-title">{{ dictionary.account.resetPassword }}</h2>
+          <p>{{ i18n.format(dictionary.account.resetWarning, { name: user.displayName }) }}</p>
+          <p>{{ dictionary.account.resetConfirmHint }}</p>
           <div class="actions">
-            <button type="button" (click)="cancelResetConfirmation()">Cancelar</button>
-            <button type="button" class="primary" (click)="confirmReset()">Confirmar restablecimiento</button>
+            <button type="button" (click)="cancelResetConfirmation()">{{ dictionary.account.cancel }}</button>
+            <button type="button" class="primary" (click)="confirmReset()">{{ dictionary.account.confirmReset }}</button>
           </div>
         }
       </dialog>
 
       <dialog #passwordDialog aria-labelledby="temporary-password-title" (cancel)="$event.preventDefault()">
         @if (temporaryPassword()) {
-          <h2 id="temporary-password-title">Contraseña temporal</h2>
-          <p>Guárdala ahora. No podrás consultarla de nuevo al cerrar este diálogo.</p>
+          <h2 id="temporary-password-title">{{ dictionary.account.temporaryPassword }}</h2>
+          <p>{{ dictionary.account.saveTemporaryPassword }}</p>
           <code>{{ temporaryPassword() }}</code>
           @if (copyMessage()) { <p role="status">{{ copyMessage() }}</p> }
           <div class="actions">
-            <button type="button" (click)="copyTemporaryPassword()">Copiar contraseña</button>
-            <button type="button" (click)="closePasswordDialog()">He guardado la contraseña</button>
+            <button type="button" (click)="copyTemporaryPassword()">{{ dictionary.account.copyPassword }}</button>
+            <button type="button" (click)="closePasswordDialog()">{{ dictionary.account.passwordSaved }}</button>
           </div>
         }
       </dialog>
 
       @if (pendingReset(); as pending) {
         <div class="state error" role="status">
-          La solicitud para {{ pending.user.username }} puede seguir pendiente. Confirma tu contraseña y reintenta con el mismo botón; también puedes revisar el listado e iniciar una nueva solicitud.
-          <button type="button" [disabled]="submitting()" (click)="discardPendingReset()">Revisar e iniciar nueva solicitud</button>
+          {{ i18n.format(dictionary.account.resetPending, { name: pending.user.username }) }}
+          <button type="button" [disabled]="submitting()" (click)="discardPendingReset()">{{ dictionary.account.startNewRequest }}</button>
         </div>
       }
 
@@ -146,11 +146,11 @@
         <table>
           <thead>
             <tr>
-              <th>Usuario</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>Requiere cambio</th>
-              <th>Acciones</th>
+              <th>{{ dictionary.account.username }}</th>
+              <th>{{ dictionary.account.role }}</th>
+              <th>{{ dictionary.account.status }}</th>
+              <th>{{ dictionary.account.requiresChange }}</th>
+              <th>{{ dictionary.account.actions }}</th>
             </tr>
           </thead>
           <tbody>
@@ -161,35 +161,35 @@
                   <small>{{ user.username }}</small>
                 </td>
                 <td>
-                  <select [disabled]="submitting() || !!rolesError() || !hasRole(user.role)" (change)="selectRole(user, $event)" [attr.aria-label]="'Rol de ' + user.displayName">
-                    @if (!hasRole(user.role)) { <option [value]="user.role" [selected]="true">{{ user.role || 'Rol no disponible' }}</option> }
+                  <select [disabled]="submitting() || !!rolesError() || !hasRole(user.role)" (change)="selectRole(user, $event)" [attr.aria-label]="i18n.format(dictionary.account.roleOf, { name: user.displayName })">
+                    @if (!hasRole(user.role)) { <option [value]="user.role" [selected]="true">{{ roleLabel(user.role) || dictionary.account.roleUnavailable }}</option> }
                     @for (role of roles(); track role.code) {
-                      <option [value]="role.code" [selected]="role.code === user.role">{{ role.label }}</option>
+                      <option [value]="role.code" [selected]="role.code === user.role">{{ roleLabel(role.code, role.label) }}</option>
                     }
                   </select>
                 </td>
                 <td>
-                  <select [value]="user.isActive ? 'active' : 'inactive'" [disabled]="submitting()" (change)="selectStatus(user, $event)">
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
+                  <select [value]="user.isActive ? 'active' : 'inactive'" [disabled]="submitting()" (change)="selectStatus(user, $event)" [attr.aria-label]="i18n.format(dictionary.account.statusOf, { name: user.displayName })">
+                    <option value="active">{{ dictionary.account.active }}</option>
+                    <option value="inactive">{{ dictionary.account.inactive }}</option>
                   </select>
                 </td>
-                <td>{{ user.mustChangePassword ? 'Sí' : 'No' }}</td>
+                <td>{{ user.mustChangePassword ? dictionary.account.yes : dictionary.account.no }}</td>
                 <td>
                   @if (canReset(user)) {
                     <button class="ghost" type="button" [disabled]="submitting() || !!temporaryPassword()" (click)="requestReset(user)">
-                      {{ pendingReset()?.user?.id === user.id ? 'Reintentar restablecimiento' : 'Restablecer contraseña' }}
+                      {{ pendingReset()?.user?.id === user.id ? dictionary.account.retryReset : dictionary.account.resetPassword }}
                     </button>
                   }
                   <button class="ghost" type="button" [disabled]="submitting()" (click)="changeStatus(user, user.isActive ? 'inactive' : 'active')">
-                    {{ user.isActive ? 'Desactivar' : 'Activar' }}
+                    {{ user.isActive ? dictionary.account.deactivate : dictionary.account.activate }}
                   </button>
                 </td>
               </tr>
             }
             @if (!users().length) {
               <tr>
-                <td colspan="5" class="empty">Sin resultados</td>
+                <td colspan="5" class="empty">{{ dictionary.account.noResults }}</td>
               </tr>
             }
           </tbody>
@@ -197,9 +197,9 @@
       </div>
 
       <div class="pagination">
-        <button type="button" [disabled]="page() <= 1" (click)="previousPage()">Anterior</button>
-        <span>Página {{ page() }}</span>
-        <button type="button" [disabled]="(page() * pageSize()) >= total()" (click)="nextPage()">Siguiente</button>
+        <button type="button" [disabled]="page() <= 1" (click)="previousPage()">{{ dictionary.account.previous }}</button>
+        <span>{{ i18n.format(dictionary.account.pageNumber, { page: i18n.number(page()) }) }}</span>
+        <button type="button" [disabled]="(page() * pageSize()) >= total()" (click)="nextPage()">{{ dictionary.account.next }}</button>
       </div>
       }
     }

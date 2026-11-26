@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { UserAdministrationService } from '../../core/services/user-administration.service';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { AdminUsersPage } from './admin-users';
 
 const user = { id: '1', username: 'ana', displayName: 'Ana', role: 'operador', isActive: true, mustChangePassword: true, createdAt: '', updatedAt: '', managementVersion: '7' };
@@ -17,6 +18,7 @@ describe('AdminUsersPage', () => {
   };
 
   beforeEach(async () => {
+    localStorage.removeItem('mine.ui.language');
     vi.resetAllMocks();
     auth.reauthenticate.mockResolvedValue(undefined);
     admin.listUsers.mockReturnValue(of({ items: [user], page: 1, pageSize: 25, total: 1 }));
@@ -28,6 +30,45 @@ describe('AdminUsersPage', () => {
     component = fixture.componentInstance;
     await fixture.whenStable();
     fixture.detectChanges();
+  });
+
+  afterEach(() => localStorage.removeItem('mine.ui.language'));
+
+  it('retranslates pending confirmations and errors while preserving forms, role codes and unknown labels', async () => {
+    component.filters.setValue({ search: 'Ana', role: 'operador', status: 'active' });
+    component.filters.markAsDirty();
+    component.createForm.setValue({ username: 'ana2', displayName: 'Ana Dos', role: 'operador' });
+    component.createForm.markAsDirty();
+    await component.submitCreate();
+    component.adminPassword.setValue('pending-password');
+    component.roles.set([...component.roles(), { code: 'custom', label: 'Equipo especial' }]);
+    await component.changeRole(user, 'administrador');
+    fixture.detectChanges();
+    const search = fixture.nativeElement.querySelector('[formControlName="search"]');
+    TestBed.inject(I18nService).setLanguage('en');
+    fixture.detectChanges();
+    expect(component.error()).toContain('Confirm your administrator password');
+    expect(fixture.nativeElement.querySelector('[aria-labelledby="confirm-change-title"]').textContent).toContain('Change Ana’s role to Administrator');
+    expect(fixture.nativeElement.querySelector('[formControlName="search"]')).toBe(search);
+    expect(component.filters.getRawValue()).toEqual({ search: 'Ana', role: 'operador', status: 'active' });
+    expect(component.createForm.getRawValue()).toEqual({ username: 'ana2', displayName: 'Ana Dos', role: 'operador' });
+    expect(component.createForm.dirty).toBe(true);
+    expect(component.adminPassword.value).toBe('pending-password');
+    expect(fixture.nativeElement.querySelector('option[value="operador"]').textContent).toContain('Operator');
+    expect(fixture.nativeElement.querySelector('option[value="custom"]').textContent).toContain('Equipo especial');
+    expect(admin.listUsers).toHaveBeenCalledTimes(1);
+    expect(admin.createUser).not.toHaveBeenCalled();
+    expect(admin.changeRole).not.toHaveBeenCalled();
+  });
+
+  it('keeps standard role labels localized even when the catalog is unavailable', () => {
+    component.roles.set([]);
+    TestBed.inject(I18nService).setLanguage('en');
+    fixture.detectChanges();
+    const select = fixture.nativeElement.querySelector('tbody tr td:nth-child(2) select') as HTMLSelectElement;
+    expect(select.value).toBe('operador');
+    expect(select.selectedOptions[0].textContent).toContain('Operator');
+    expect(select.disabled).toBe(true);
   });
 
   it('confirms and reauthenticates a reset before exposing the temporary password', async () => {

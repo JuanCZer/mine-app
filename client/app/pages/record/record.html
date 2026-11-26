@@ -1,11 +1,14 @@
 <section class="intro">
   <div>
-    <span>HISTORIAL DE INCIDENCIAS</span>
-    <h2>Seguimiento de incidencias.</h2>
-    <p>Consulta cada incidencia y el punto de validación en que se encuentra.</p>
+    <span>{{ dictionary.map.recordEyebrow }}</span>
+    <h2>{{ dictionary.map.recordHeading }}</h2>
+    <p>{{ dictionary.map.recordIntro }}</p>
   </div>
-  <a routerLink="/incidencias">＋ Nueva incidencia</a>
+  <a routerLink="/incidencias">{{ dictionary.map.newIncident }}</a>
 </section>
+@if (error()) {
+  <p role="alert">{{ error() }}</p>
+}
 <section class="records">
   <header>
     <label
@@ -13,20 +16,26 @@
       ><input
         #query
         type="search"
-        placeholder="Buscar por identificador, indicio o área"
+        [placeholder]="dictionary.map.search"
+        [attr.aria-label]="dictionary.map.search"
         (input)="search.set(query.value)" /></label
-    ><strong>{{ filtered().length }} REGISTROS</strong>
+    ><strong>{{
+      i18n.format(
+        filtered().length === 1 ? dictionary.map.recordCountOne : dictionary.map.recordCount,
+        { count: i18n.number(filtered().length) }
+      )
+    }}</strong>
   </header>
-  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla de incidencias">
+  <div class="table-wrap" tabindex="0" role="region" [attr.aria-label]="dictionary.map.recordTable">
     <table>
       <thead>
         <tr>
-          <th>Incidencia</th>
-          <th>Validaciones</th>
-          <th>Área / corredor</th>
-          <th>Latitud</th>
-          <th>Longitud</th>
-          <th>Actualización</th>
+          <th>{{ dictionary.map.incident }}</th>
+          <th>{{ dictionary.map.validations }}</th>
+          <th>{{ dictionary.map.areaCorridor }}</th>
+          <th>{{ dictionary.map.latitude }}</th>
+          <th>{{ dictionary.map.longitude }}</th>
+          <th>{{ dictionary.map.updated }}</th>
           <th></th>
         </tr>
       </thead>
@@ -34,7 +43,7 @@
         @for (note of filtered(); track note.id) {
           <tr>
             <td>
-              <strong>{{ note.title || 'Incidencia sin identificar' }}</strong
+              <strong>{{ note.title || dictionary.map.unidentifiedIncident }}</strong
               ><small>{{ note.content }}</small>
             </td>
             <td>
@@ -43,21 +52,25 @@
               >
             </td>
             <td>
-              <span class="state">{{ note.state || 'Sin área' }}</span>
+              <span class="state">{{ note.state || dictionary.map.noArea }}</span>
             </td>
-            <td>{{ note.altitude ?? '—' }}</td>
-            <td>{{ note.longitude ?? '—' }}</td>
-            <td>{{ note.updatedAt | date: 'dd/MM/y HH:mm' }}</td>
+            <td>{{ coordinate(note.altitude) }}</td>
+            <td>{{ coordinate(note.longitude) }}</td>
+            <td>{{ i18n.date(note.updatedAt) }}</td>
             <td>
-              <a [routerLink]="['/mapa']" [queryParams]="{ note: note.id }" title="Ver en mapa"
+              <a
+                [routerLink]="['/mapa']"
+                [queryParams]="{ note: note.id }"
+                [title]="dictionary.map.viewMap"
+                [attr.aria-label]="dictionary.map.viewMap"
                 >⌖</a
               >
             </td>
           </tr>
         } @empty {
-          @if (!loading()) {
+          @if (!loading() && !error()) {
             <tr>
-              <td colspan="7" class="empty">Aún no hay registros guardados.</td>
+              <td colspan="7" class="empty">{{ dictionary.map.noRecords }}</td>
             </tr>
           }
         }

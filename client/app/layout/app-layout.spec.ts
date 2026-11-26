@@ -174,6 +174,27 @@ describe('AppLayout', () => {
     localStorage.clear();
   });
 
+  it('changes header, navigation and existing logout error without replacing the active page', async () => {
+    await createLayout();
+    logout.mockRejectedValueOnce(new Error('network'));
+    element<HTMLButtonElement>('.sidebar-logout').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const activePage = element<HTMLElement>('test-incidents');
+    expect(activePage).toBeTruthy();
+    const english = element<HTMLButtonElement>('.session [data-language="en"]');
+    expect(english).toBeTruthy();
+    english.click();
+    fixture.detectChanges();
+    expect(english.getAttribute('aria-pressed')).toBe('true');
+    expect(element<HTMLElement>('header h1').textContent).toContain('Incidents');
+    expect(element<HTMLElement>('.session-error').textContent).toContain('Could not confirm sign-out');
+    expect(element<HTMLElement>('test-incidents')).toBe(activePage);
+    expect(router.url).toBe('/incidencias');
+    expect(document.title).toBe('Incidents · 4 phases');
+    expect(element<HTMLElement>('.session-user-button').textContent).toContain('Operador Uno');
+  });
+
   it('shows a neutral desktop layout without the GDS brand or fictitious workspace status', async () => {
     await createLayout();
     const toggle = element<HTMLButtonElement>('.sidebar-toggle');

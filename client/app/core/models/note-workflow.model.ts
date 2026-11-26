@@ -1,3 +1,4 @@
+import { es as esWorkflow, WorkflowDictionary } from '../i18n/workflow-dictionary';
 import {
   CaseEvent,
   DetectionStage,
@@ -220,7 +221,12 @@ export const emptyNoteWorkflow = (): NoteWorkflow => ({
   history: [],
 });
 
-export function notePhaseIssues(note: Note, stage: DetectionStage, data: NotePhaseData): string[] {
+export function notePhaseIssues(
+  note: Note,
+  stage: DetectionStage,
+  data: NotePhaseData,
+  dictionary: WorkflowDictionary = esWorkflow,
+): string[] {
   const issues: string[] = [];
   const review = data.review;
   if (
@@ -234,203 +240,184 @@ export function notePhaseIssues(note: Note, stage: DetectionStage, data: NotePha
     !Number.isFinite(note.longitude) ||
     Math.abs(note.longitude) > 180
   )
-    issues.push('Completa y guarda el registro inicial de indicios y sus coordenadas.');
+    issues.push(dictionary.issues.initialRecord);
   if (stage === 'indications') {
     const indications = data.indications ?? emptyPhaseData().indications;
-    if (!review.baseline.trim()) issues.push('Falta la referencia del levantamiento base.');
-    if (!review.comparison.trim())
-      issues.push('Falta la referencia del levantamiento de comparación.');
-    if (indications.platform !== 'if1200a')
-      issues.push('Indica la plataforma Inspired Flight IF1200A.');
-    if (!indications.blueUasNdaaCompliant)
-      issues.push('Confirma el cumplimiento Blue UAS / NDAA de la plataforma.');
+    if (!review.baseline.trim()) issues.push(dictionary.issues.baseline);
+    if (!review.comparison.trim()) issues.push(dictionary.issues.comparison);
+    if (indications.platform !== 'if1200a') issues.push(dictionary.issues.indicationPlatform);
+    if (!indications.blueUasNdaaCompliant) issues.push(dictionary.issues.platformCompliance);
     if (
       indications.flightDurationMin === null ||
       indications.flightDurationMin <= 0 ||
       indications.flightDurationMin > 43
     )
-      issues.push('Registra una duración de vuelo entre 0 y 43 minutos.');
+      issues.push(dictionary.issues.flightDuration);
     if (indications.lidarPointRate === null || indications.lidarPointRate < 640000)
-      issues.push('Registra una captura LiDAR de al menos 640,000 puntos por segundo.');
+      issues.push(dictionary.issues.lidarPointRate);
     if (
       indications.payloadLb === null ||
       indications.payloadLb <= 0 ||
       indications.payloadLb > 19.1
     )
-      issues.push('Registra una carga útil entre 0 y 19.1 lb.');
+      issues.push(dictionary.issues.payload);
     if (
       indications.missionSpeedMph === null ||
       indications.missionSpeedMph <= 0 ||
       indications.missionSpeedMph > 56
     )
-      issues.push('Registra una velocidad de misión entre 0 y 56 mph.');
+      issues.push(dictionary.issues.missionSpeed);
     if (indications.windKnots === null || indications.windKnots < 0 || indications.windKnots > 23)
-      issues.push('Registra una resistencia de viento de hasta 23 nudos.');
-    if (!indications.terrainModelReference.trim())
-      issues.push('Agrega la referencia del modelo tridimensional denso del corredor.');
+      issues.push(dictionary.issues.wind);
+    if (!indications.terrainModelReference.trim()) issues.push(dictionary.issues.terrainModel);
     if (!indications.differentialAnalysisCompleted)
-      issues.push('Confirma la ejecución del algoritmo diferencial contra la línea base.');
+      issues.push(dictionary.issues.differentialAnalysis);
     if (indications.surfaceVariationMm === null || indications.surfaceVariationMm <= 0)
-      issues.push('Registra la variación milimétrica de superficie observada.');
-    if (!indications.actionableAlertGenerated)
-      issues.push('Confirma la generación de una alerta procesable de I&W.');
-    if (!indications.personnelNotExposed)
-      issues.push('Confirma que el levantamiento no expuso personal al área de riesgo.');
+      issues.push(dictionary.issues.surfaceVariation);
+    if (!indications.actionableAlertGenerated) issues.push(dictionary.issues.actionableAlert);
+    if (!indications.personnelNotExposed) issues.push(dictionary.issues.personnelNotExposed);
     if (!indications.coordinateTransferredToVeles)
-      issues.push('Confirma la transferencia de la coordenada de anomalía a VELES.');
-    if (!indications.observedAt)
-      issues.push('Registra la fecha y hora del levantamiento comparativo.');
-    if (!indications.collectionSource)
-      issues.push('Indica la fuente LiDAR del levantamiento de Fase 1.');
-    if (!indications.signatures.length)
-      issues.push('Selecciona al menos una firma de alteración del terreno observada.');
+      issues.push(dictionary.issues.coordinateTransferred);
+    if (!indications.observedAt) issues.push(dictionary.issues.observedAt);
+    if (!indications.collectionSource) issues.push(dictionary.issues.collectionSource);
+    if (!indications.signatures.length) issues.push(dictionary.issues.signatures);
     if (
       indications.signatures.includes('surface-removal') &&
       (indications.depressionDepthCm === null ||
         indications.depressionDepthCm < 5 ||
         indications.depressionDepthCm > 15)
     )
-      issues.push(
-        'Para una depresión o remoción, registra una profundidad estimada entre 5 y 15 cm.',
-      );
-    if (!data.terrainNotes.trim())
-      issues.push('Describe las condiciones base de topografía, vegetación y suelo.');
-    if (!indications.alternativeCauses.trim())
-      issues.push(
-        'Documenta las causas naturales o actividades civiles consideradas para descartar un falso positivo.',
-      );
+      issues.push(dictionary.issues.depressionDepth);
+    if (!data.terrainNotes.trim()) issues.push(dictionary.issues.terrainNotes);
+    if (!indications.alternativeCauses.trim()) issues.push(dictionary.issues.alternativeCauses);
     if (!data.evidence.some((entry) => entry.sensor === 'LiDAR'))
-      issues.push(
-        'Agrega la referencia de la nube de puntos o producto LiDAR que sustenta el indicio.',
-      );
+      issues.push(dictionary.issues.lidarEvidence);
   }
   if (stage === 'reconnaissance') {
     const reconnaissance = data.reconnaissance ?? emptyPhaseData().reconnaissance;
     if (!['confirmed', 'false-positive'].includes(review.finding))
-      issues.push('El dictamen está pendiente o es inconcluso.');
+      issues.push(dictionary.issues.finding);
     const sensors = new Set(data.evidence.map((entry) => entry.sensor));
     for (const sensor of ['GPR', 'Magnetometría', 'RGB', 'IR'] as const)
-      if (!sensors.has(sensor)) issues.push(`Agrega la evidencia ${sensor} de VELES.`);
+      if (!sensors.has(sensor))
+        issues.push(
+          dictionary.issues.velesEvidence.replace(
+            '{sensor}',
+            sensor === 'Magnetometría' ? dictionary.issues.magnetometrySensor : sensor,
+          ),
+        );
     if (reconnaissance.magneticReadingNt === null || reconnaissance.magneticReadingNt < 10)
-      issues.push('Registra una lectura magnetométrica de al menos 10 nT.');
+      issues.push(dictionary.issues.magneticReading);
     if (
       reconnaissance.gprDepthCm === null ||
       reconnaissance.gprDepthCm <= 0 ||
       reconnaissance.gprDepthCm > 30
     )
-      issues.push('Registra la profundidad GPR observada, hasta 30 cm.');
+      issues.push(dictionary.issues.gprDepth);
     if (
       reconnaissance.rtkAccuracyCm === null ||
       reconnaissance.rtkAccuracyCm < 1 ||
       reconnaissance.rtkAccuracyCm > 3
     )
-      issues.push('Registra precisión RTK entre 1 y 3 cm.');
+      issues.push(dictionary.issues.rtkAccuracy);
     if (
       reconnaissance.localizationAccuracyCm === null ||
       reconnaissance.localizationAccuracyCm <= 0 ||
       reconnaissance.localizationAccuracyCm > 5
     )
-      issues.push('Registra la localización de la amenaza con precisión de hasta 5 cm.');
+      issues.push(dictionary.issues.localizationAccuracy);
     if (!reconnaissance.probability || !reconnaissance.priority)
-      issues.push('Clasifica la probabilidad y prioridad de la anomalía.');
+      issues.push(dictionary.issues.risk);
     if (!reconnaissance.georeferencedPointReference.trim())
-      issues.push('Agrega la referencia del punto georreferenciado resultante.');
-    if (!reconnaissance.riskMapReference.trim())
-      issues.push('Agrega la referencia del mapa de riesgo.');
+      issues.push(dictionary.issues.georeferencedPoint);
+    if (!reconnaissance.riskMapReference.trim()) issues.push(dictionary.issues.riskMap);
     if (!reconnaissance.aiClassificationReference.trim())
-      issues.push('Agrega la referencia de clasificación IA de VELES.');
-    if (!reconnaissance.fusionCompleted)
-      issues.push('Confirma la fusión de GPR, magnetometría, RGB e infrarrojo térmico.');
+      issues.push(dictionary.issues.aiClassification);
+    if (!reconnaissance.fusionCompleted) issues.push(dictionary.issues.fusion);
   }
   if (stage === 'surveillance') {
     const surveillance = data.surveillance ?? emptyPhaseData().surveillance;
     const sensors = new Set(data.evidence.map((entry) => entry.sensor));
     if (!surveillance.observationStartedAt || !surveillance.observationEndedAt)
-      issues.push('Registra el inicio y cierre del periodo de vigilancia.');
-    if (!surveillance.radioTechnologies.length)
-      issues.push('Indica las tecnologías móviles observadas: 2G, 3G, 4G o 5G.');
+      issues.push(dictionary.issues.observationPeriod);
+    if (!surveillance.radioTechnologies.length) issues.push(dictionary.issues.radioTechnologies);
     if (!surveillance.methods.includes('imsi-imei-tmsi-capture'))
-      issues.push('Registra la captura IMSI, IMEI y TMSI de la vigilancia.');
-    if (!surveillance.methods.includes('uav-camera-feed'))
-      issues.push('Registra la integración de cámara UAV para observación EO/IR.');
+      issues.push(dictionary.issues.identityCapture);
+    if (!surveillance.methods.includes('uav-camera-feed')) issues.push(dictionary.issues.uavCamera);
     if (
       !surveillance.methods.some(
         (method) =>
           method === 'precision-mapping' || method === 'silent-call-df' || method === 'target-api',
       )
     )
-      issues.push('Registra un método de geolocalización o radiogoniometría.');
-    if (!surveillance.deployment) issues.push('Indica el despliegue de vigilancia utilizado.');
+      issues.push(dictionary.issues.geolocationMethod);
+    if (!surveillance.deployment) issues.push(dictionary.issues.deployment);
     if (
       (surveillance.deployment === 'uav' || surveillance.deployment === 'combined') &&
       (surveillance.coveredChannels === null || surveillance.coveredChannels < 2)
     )
-      issues.push('Registra al menos dos canales de cobertura para el despliegue UAV.');
+      issues.push(dictionary.issues.uavChannels);
     if (
       surveillance.duplicatedChannelConfiguration &&
       (surveillance.coveredChannels === null || surveillance.coveredChannels < 4)
     )
-      issues.push('La configuración duplicada requiere al menos cuatro canales de cobertura.');
+      issues.push(dictionary.issues.duplicatedChannels);
     if (surveillance.activeDeviceCount === null || surveillance.activeDeviceCount < 0)
-      issues.push('Registra el número de dispositivos móviles activos detectados.');
-    if (!surveillance.humanActivity) issues.push('Clasifica la actividad humana observada.');
+      issues.push(dictionary.issues.activeDevices);
+    if (!surveillance.humanActivity) issues.push(dictionary.issues.humanActivity);
     if (surveillance.environmentDecision !== 'clear-for-mitigation')
-      issues.push('La vigilancia debe certificar el entorno humano antes de pasar a mitigación.');
-    if (!sensors.has('EO/IR')) issues.push('Agrega la evidencia de observación EO/IR.');
-    if (!sensors.has('IMSI/IMEI/TMSI'))
-      issues.push('Agrega la evidencia de captura IMSI, IMEI o TMSI.');
+      issues.push(dictionary.issues.environmentDecision);
+    if (!sensors.has('EO/IR')) issues.push(dictionary.issues.eoIrEvidence);
+    if (!sensors.has('IMSI/IMEI/TMSI')) issues.push(dictionary.issues.identityEvidence);
   }
   if (stage === 'mitigation') {
     const mitigation = data.mitigation ?? emptyPhaseData().mitigation;
     const sensors = new Set(data.evidence.map((entry) => entry.sensor));
-    if (!mitigation.coordinateReceived)
-      issues.push('Confirma la recepción de la coordenada exacta de VELES.');
+    if (!mitigation.coordinateReceived) issues.push(dictionary.issues.coordinateReceived);
     if (mitigation.platform !== 'husky-route-clearance')
-      issues.push('Indica la plataforma Husky de limpieza de ruta.');
-    if (!mitigation.protectionLevel)
-      issues.push('Selecciona el nivel de protección STANAG 4569 utilizado.');
+      issues.push(dictionary.issues.mitigationPlatform);
+    if (!mitigation.protectionLevel) issues.push(dictionary.issues.protectionLevel);
     if (!mitigation.personnelProtectionConfirmed || !mitigation.equipmentProtectionConfirmed)
-      issues.push('Confirma la protección de personal y equipo antes de la limpieza de ruta.');
+      issues.push(dictionary.issues.protectionConfirmed);
     if (mitigation.detectionAssets === null || mitigation.detectionAssets < 2)
-      issues.push('Registra al menos dos medios de detección para la limpieza de ruta.');
+      issues.push(dictionary.issues.detectionAssets);
     if (mitigation.interrogationAssets === null || mitigation.interrogationAssets < 1)
-      issues.push('Registra al menos un medio de interrogación.');
-    if (!mitigation.gprCoverageOverlap) issues.push('Confirma el traslape de cobertura GPR.');
+      issues.push(dictionary.issues.interrogationAssets);
+    if (!mitigation.gprCoverageOverlap) issues.push(dictionary.issues.gprOverlap);
     if (mitigation.safetyMarginM === null || mitigation.safetyMarginM <= 0)
-      issues.push('Registra los márgenes de seguridad del brazo de interrogación.');
+      issues.push(dictionary.issues.safetyMargin);
     if (!mitigation.remoteInterrogationCompleted)
-      issues.push('Confirma la interrogación del objetivo a distancia segura.');
+      issues.push(dictionary.issues.remoteInterrogation);
     if (
       !mitigation.artifactType.trim() ||
       !mitigation.orientation.trim() ||
       !mitigation.activationMechanism.trim()
     )
-      issues.push('Documenta tipo, orientación y mecanismo de activación antes de la entrega EOD.');
-    if (!mitigation.eodHandoffReference.trim())
-      issues.push('Agrega la referencia de entrega al operador EOD.');
+      issues.push(dictionary.issues.artifactDetails);
+    if (!mitigation.eodHandoffReference.trim()) issues.push(dictionary.issues.eodHandoff);
     if (mitigation.neutralizationResult !== 'neutralized')
-      issues.push('Registra la neutralización controlada del dispositivo.');
-    if (!mitigation.routeResult) issues.push('Registra el resultado de apertura de ruta segura.');
+      issues.push(dictionary.issues.neutralization);
+    if (!mitigation.routeResult) issues.push(dictionary.issues.routeResult);
     if (
       !mitigation.techintComposition.trim() ||
       !mitigation.techintManufacture.trim() ||
       !mitigation.techintSignature.trim()
     )
-      issues.push('Documenta composición, manufactura y firma para TECHINT.');
-    if (!mitigation.catalogFeedbackReference.trim())
-      issues.push('Agrega la referencia de retroalimentación al catálogo de IA de VELES.');
+      issues.push(dictionary.issues.techintDetails);
+    if (!mitigation.catalogFeedbackReference.trim()) issues.push(dictionary.issues.catalogFeedback);
     for (const sensor of ['GPR', 'EOD', 'TECHINT'] as const)
-      if (!sensors.has(sensor)) issues.push(`Agrega la evidencia ${sensor} de mitigación.`);
+      if (!sensors.has(sensor))
+        issues.push(dictionary.issues.mitigationEvidence.replace('{sensor}', sensor));
   }
   return issues;
 }
 
-export function noteProgress(note: Note): string {
+export function noteProgress(note: Note, dictionary: WorkflowDictionary = esWorkflow): string {
   const workflow = note.workflow;
-  if (workflow?.status === 'closed') return '4 de 4 fases validadas';
-  if (workflow?.status === 'discarded') return 'Cerrada · falso positivo';
+  if (workflow?.status === 'closed') return dictionary.progress.closed;
+  if (workflow?.status === 'discarded') return dictionary.progress.discarded;
   const number =
     DETECTION_LAYERS.findIndex((layer) => layer.id === (workflow?.currentStage ?? 'indications')) +
     1;
-  return `Fase ${number} de 4 · pendiente de validar`;
+  return dictionary.progress.pending.replace('{phase}', String(number));
 }

@@ -1,3 +1,4 @@
+import { es as esWorkflow, WorkflowDictionary } from '../i18n/workflow-dictionary';
 export type DetectionStage = 'indications' | 'reconnaissance' | 'surveillance' | 'mitigation';
 export type CaseStatus = 'open' | 'closed' | 'discarded';
 export type Priority = string;
@@ -16,48 +17,48 @@ export interface LayerDefinition {
 }
 
 // The source numbers surveillance as layer 3, but explicitly places it before mitigation.
-export const DETECTION_LAYERS: readonly LayerDefinition[] = [
+export const detectionLayers = (
+  dictionary: WorkflowDictionary = esWorkflow,
+): readonly LayerDefinition[] => [
   {
     id: 'indications',
     number: '00',
-    title: 'Indicios tempranos',
-    subtitle: 'Inteligencia · I&W',
-    description:
-      'Documentar cambios respecto al levantamiento base y registrar una anomalía georreferenciada.',
-    platform: 'IF1200A · LiDAR / RGB / IR',
+    title: dictionary.layers.indicationsTitle,
+    subtitle: dictionary.layers.indicationsSubtitle,
+    description: dictionary.layers.indicationsDescription,
+    platform: dictionary.layers.indicationsPlatform,
     pages: '7–10',
   },
   {
     id: 'reconnaissance',
     number: '01',
-    title: 'Reconocimiento',
-    subtitle: 'Correlación multisensorial',
-    description:
-      'Reunir evidencias de distintos sensores y registrar el dictamen técnico de un especialista.',
-    platform: 'VELES · GPR / magnetometría / RGB / IR',
+    title: dictionary.layers.reconnaissanceTitle,
+    subtitle: dictionary.layers.reconnaissanceSubtitle,
+    description: dictionary.layers.reconnaissanceDescription,
+    platform: dictionary.layers.reconnaissancePlatform,
     pages: '11–17',
   },
   {
     id: 'surveillance',
     number: '03',
-    title: 'Vigilancia',
-    subtitle: 'Revisión del entorno',
-    description:
-      'Registrar la revisión del entorno y la decisión del responsable antes de pasar a mitigación.',
-    platform: 'Observación EO/IR · revisión humana',
+    title: dictionary.layers.surveillanceTitle,
+    subtitle: dictionary.layers.surveillanceSubtitle,
+    description: dictionary.layers.surveillanceDescription,
+    platform: dictionary.layers.surveillancePlatform,
     pages: '25–26',
   },
   {
     id: 'mitigation',
     number: '02',
-    title: 'Mitigación y cierre',
-    subtitle: 'Seguimiento especializado',
-    description:
-      'Dar seguimiento a la intervención externa y conservar el informe de cierre y la referencia TECHINT.',
-    platform: 'Equipo especializado · informe EOD / TECHINT',
+    title: dictionary.layers.mitigationTitle,
+    subtitle: dictionary.layers.mitigationSubtitle,
+    description: dictionary.layers.mitigationDescription,
+    platform: dictionary.layers.mitigationPlatform,
     pages: '18–24',
   },
 ];
+
+export const DETECTION_LAYERS = detectionLayers();
 
 export interface CaseInput {
   title: string;
@@ -108,6 +109,8 @@ export interface CaseEvent {
   at: string;
   actor: string;
   text: string;
+  code?: string;
+  parameters?: Record<string, string | number>;
 }
 
 export interface DetectionCase extends CaseInput {
@@ -123,40 +126,43 @@ export interface DetectionCase extends CaseInput {
   history: CaseEvent[];
 }
 
-export function stageLabel(stage: DetectionStage): string {
-  return DETECTION_LAYERS.find((layer) => layer.id === stage)!.title;
+export function stageLabel(
+  stage: DetectionStage,
+  dictionary: WorkflowDictionary = esWorkflow,
+): string {
+  return detectionLayers(dictionary).find((layer) => layer.id === stage)!.title;
 }
 
-export function transitionIssues(item: DetectionCase): string[] {
-  if (item.status !== 'open') return ['El expediente ya está cerrado.'];
+export function transitionIssues(
+  item: DetectionCase,
+  dictionary: WorkflowDictionary = esWorkflow,
+): string[] {
+  if (item.status !== 'open') return [dictionary.issues.alreadyClosed];
   const review = item.reviews[item.stage];
   const evidence = item.evidence.filter((entry) => entry.stage === item.stage);
   const issues: string[] = [];
-  if (!review.reviewer.trim()) issues.push('Indica quién revisa esta etapa.');
-  if (!review.notes.trim()) issues.push('Documenta el fundamento de la revisión.');
-  if (!evidence.length) issues.push('Registra al menos una evidencia de esta etapa.');
+  if (!review.reviewer.trim()) issues.push(dictionary.issues.reviewer);
+  if (!review.notes.trim()) issues.push(dictionary.issues.reviewNotes);
+  if (!evidence.length) issues.push(dictionary.issues.phaseEvidence);
   if (item.stage === 'indications') {
-    if (!review.baseline.trim()) issues.push('Falta la referencia del levantamiento base.');
-    if (!review.comparison.trim())
-      issues.push('Falta la referencia del levantamiento de comparación.');
+    if (!review.baseline.trim()) issues.push(dictionary.issues.baseline);
+    if (!review.comparison.trim()) issues.push(dictionary.issues.comparison);
   }
   if (item.stage === 'reconnaissance') {
     if (!['confirmed', 'false-positive'].includes(review.finding))
-      issues.push('El dictamen está pendiente o es inconcluso.');
+      issues.push(dictionary.issues.finding);
     const sensors = new Set(
       evidence
         .filter((entry) => ['RGB', 'IR', 'GPR', 'Magnetometría'].includes(entry.sensor))
         .map((entry) => entry.sensor),
     );
-    if (sensors.size < 2)
-      issues.push('Registra evidencias de al menos dos sensores de reconocimiento.');
+    if (sensors.size < 2) issues.push(dictionary.issues.reconnaissanceSensors);
   }
   if (item.stage === 'surveillance' && review.environment !== 'reviewed')
-    issues.push('La revisión del entorno está pendiente o bloqueada.');
+    issues.push(dictionary.issues.environmentReview);
   if (item.stage === 'mitigation') {
-    if (!review.report.trim())
-      issues.push('Falta la referencia del informe de cierre especializado.');
-    if (!review.techint.trim()) issues.push('Falta la referencia de retroalimentación TECHINT.');
+    if (!review.report.trim()) issues.push(dictionary.issues.closureReport);
+    if (!review.techint.trim()) issues.push(dictionary.issues.techintReference);
   }
   return issues;
 }

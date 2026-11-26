@@ -36,7 +36,9 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
     public async Task<Note> Create(string userId, NoteInput input, CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.UtcNow;
-        var note = new Note(Guid.NewGuid().ToString("N"), userId, input.Title?.Trim() ?? "", input.Content?.Trim() ?? "", input.State?.Trim(), input.Altitude, input.Longitude, now, now, NoteWorkflow.Empty());
+        var workflow = NoteWorkflow.Empty();
+        workflow = workflow with { History = AddEvent(workflow, userId, WorkflowEventMessages.Created()) };
+        var note = new Note(Guid.NewGuid().ToString("N"), userId, input.Title?.Trim() ?? "", input.Content?.Trim() ?? "", input.State?.Trim(), input.Altitude, input.Longitude, now, now, workflow);
         await Mutate(notes => notes.Add(note), cancellationToken);
         return note;
     }
@@ -45,7 +47,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
     {
         WorkflowRules.CheckRevision(note, input.ExpectedRevision);
         if (note.Workflow!.Phases.Any(phase => phase.ValidatedAt is not null))
-            throw new WorkflowException("El registro inicial está vinculado a una fase validada y es de solo lectura.");
+            throw new WorkflowException("El registro inicial está vinculado a una fase validada y es de solo lectura.", "initial_record_read_only");
         return note with { Title = input.Title?.Trim() ?? "", Content = input.Content?.Trim() ?? "", State = input.State?.Trim(), Altitude = input.Altitude, Longitude = input.Longitude };
     }, cancellationToken);
 
@@ -65,7 +67,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
         };
         return note with { Workflow = note.Workflow! with {
             Phases = note.Workflow!.Phases.Select(phase => phase.Stage == stage ? phase with { Data = data } : phase).ToList(),
-            History = AddEvent(note.Workflow!, userId, $"Borrador guardado: fase {Array.IndexOf(WorkflowRules.Stages, stage) + 1}. Pendiente de validación.")
+            History = AddEvent(note.Workflow!, userId, WorkflowEventMessages.Saved(Array.IndexOf(WorkflowRules.Stages, stage) + 1))
         } };
     }, cancellationToken);
 
@@ -75,15 +77,15 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
         var phase = WorkflowRules.ActivePhase(note, stage);
         WorkflowRules.CheckDraft(phase.Data);
         await catalogs.ValidateSelectionsAsync(phase.Data, stage, phase.Data, cancellationToken);
-        var issues = WorkflowRules.ValidationIssues(note, stage, phase.Data);
-        if (issues.Count > 0) throw new WorkflowException("La fase no cumple los requisitos de validación.", 422, issues);
+        var issues = WorkflowRules.ValidationIssueDetails(note, stage, phase.Data);
+        if (issues.Count > 0) throw new WorkflowException("La fase no cumple los requisitos de validación.", "phase_validation_failed", 422, issueDetails: issues);
         var now = DateTimeOffset.UtcNow;
         var status = stage == "mitigation" ? "closed" : stage == "reconnaissance" && phase.Data.Review.Finding == "false-positive" ? "discarded" : "open";
         var number = Array.IndexOf(WorkflowRules.Stages, stage) + 1;
-        var text = status == "discarded" ? "Fase 2 validada. Proceso cerrado como falso positivo." : status == "closed" ? "Fase 4 validada. Proceso completo con informe de cierre y TECHINT." : $"Fase {number} validada. Siguiente validación: fase {number + 1}.";
+        var message = WorkflowEventMessages.Validated(number, status);
         return note with { Workflow = new NoteWorkflow(status,
             note.Workflow!.Phases.Select(p => p.Stage == stage ? p with { ValidatedAt = now, ValidatedBy = userId } : p).ToList(),
-            AddEvent(note.Workflow!, userId, text)) };
+            AddEvent(note.Workflow!, userId, message)) };
     }, cancellationToken);
 
     public async Task<bool> Delete(string userId, string id, int expectedRevision, CancellationToken cancellationToken = default)
@@ -125,7 +127,7 @@ public sealed class NoteStore(IWebHostEnvironment environment, IConfiguration co
         return updated;
     }
 
-    private static List<WorkflowEvent> AddEvent(NoteWorkflow workflow, string actor, string text) => [..workflow.History, new(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, string.IsNullOrWhiteSpace(actor) ? "Responsable pendiente" : actor.Trim(), text)];
+    private static List<WorkflowEvent> AddEvent(NoteWorkflow workflow, string actor, ApiMessage message) => [..workflow.History, new(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, string.IsNullOrWhiteSpace(actor) ? "Responsable pendiente" : actor.Trim(), message.Text, message.Code, message.Parameters)];
     private async Task<List<Note>> Read(CancellationToken cancellationToken) { await _lock.WaitAsync(cancellationToken); try { return await ReadUnsafe(cancellationToken); } finally { _lock.Release(); } }
     private async Task Mutate(Action<List<Note>> action, CancellationToken cancellationToken)
     {

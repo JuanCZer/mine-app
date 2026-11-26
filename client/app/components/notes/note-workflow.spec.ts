@@ -7,6 +7,7 @@ import { Note } from '../../core/models/note.model';
 import { emptyNoteWorkflow } from '../../core/models/note-workflow.model';
 import { NotePhaseEditor } from './note-phase-editor';
 import { NoteWorkflowPanel } from './note-workflow';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 describe('Navegación libre de fases', () => {
   let fixture: ComponentFixture<NoteWorkflowPanel>;
@@ -45,7 +46,10 @@ describe('Navegación libre de fases', () => {
     await render();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('mine.ui.language');
+  });
 
   async function render() {
     fixture.detectChanges();
@@ -98,6 +102,72 @@ describe('Navegación libre de fases', () => {
     const body = fixture.nativeElement.querySelector('.progress-track').textContent;
     expect(body).toContain('pendientes');
     expect(body).not.toContain('Bloqueada');
+  });
+
+  it('traduce fases y pendientes sin perder borradores ni evidencia al cambiar de idioma', async () => {
+    const first = editor('indications');
+    first.form.controls.baseline.setValue('Mi referencia original');
+    first.evidencePanel!.form.controls.reference.setValue('Mi evidencia incompleta');
+    await select('reconnaissance');
+    await select('surveillance');
+    await select('mitigation');
+    editor('mitigation').form.controls.artifactType.setValue('Mi artefacto');
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLanguage('en');
+    fixture.detectChanges();
+    http.expectNone('/api/catalogs');
+    await render();
+
+    expect(panel.selected()).toBe('mitigation');
+    expect(fixture.nativeElement.querySelector('.progress-track').textContent).toContain(
+      'Early indications',
+    );
+    expect(fixture.nativeElement.querySelector('.progress-track').textContent).toContain(
+      'pending requirements',
+    );
+    expect(editor('mitigation').issues()).toContain(
+      'Confirm receipt of the exact VELES coordinate.',
+    );
+    expect(editor('indications').issues()).toContain('The comparison survey reference is missing.');
+    expect(editor('reconnaissance').issues()).toContain(
+      'The assessment is pending or inconclusive.',
+    );
+    expect(editor('surveillance').issues()).toContain(
+      'Record the start and end of the surveillance period.',
+    );
+    expect(editor('mitigation').form.controls.artifactType.value).toBe('Mi artefacto');
+    await select('indications');
+    expect(editor('indications')).toBe(first);
+    expect(first.form.controls.baseline.value).toBe('Mi referencia original');
+    expect(first.evidencePanel!.form.controls.reference.value).toBe('Mi evidencia incompleta');
+    expect(dirty).toBe(true);
+    i18n.setLanguage('es');
+    await render();
+    expect(fixture.nativeElement.querySelector('.progress-track').textContent).toContain(
+      'Indicios tempranos',
+    );
+    expect(first.form.controls.baseline.value).toBe('Mi referencia original');
+    http.expectNone((request) => request.url.startsWith('/api/notes'));
+  });
+
+  it('retraduce el aviso de guardado visible sin volver a enviar el borrador', async () => {
+    editor('indications').form.controls.baseline.setValue('Referencia conservada');
+    await render();
+    editor('indications').save();
+    const request = http.expectOne('/api/notes/incident-1/phases/indications');
+    const saved = structuredClone(note);
+    saved.revision = 1;
+    saved.workflow!.phases[0].data = request.request.body.data;
+    request.flush(saved);
+    await vi.waitFor(() => expect(panel.busy()).toBe(false));
+    await render();
+    expect(panel.message()).toContain('Borrador guardado.');
+
+    TestBed.inject(I18nService).setLanguage('en');
+    await render();
+    expect(panel.message()).toContain('Draft saved.');
+    expect(editor('indications').form.controls.baseline.value).toBe('Referencia conservada');
+    http.expectNone((request) => request.url.startsWith('/api/notes'));
   });
 
   it('conserva campos inválidos y evidencia a medio escribir al cambiar de fase', async () => {

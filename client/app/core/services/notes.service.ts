@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Note, NoteInput } from '../models/note.model';
 import { DetectionStage } from '../models/detection.model';
@@ -33,17 +33,4 @@ export class NotesService {
       expectedRevision: note.revision ?? 0,
     });
   }
-}
-
-export function noteError(error: unknown): string {
-  if (error instanceof HttpErrorResponse) {
-    if (error.status === 0)
-      return 'No se pudo conectar con la API de incidencias. Inicia el backend e intenta de nuevo.';
-    if (typeof error.error?.error === 'string')
-      return [
-        error.error.error,
-        ...(Array.isArray(error.error.issues) ? error.error.issues : []),
-      ].join(' ');
-  }
-  return 'No se pudo guardar el cambio. Intenta de nuevo.';
 }

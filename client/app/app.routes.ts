@@ -10,49 +10,48 @@ export const routes: Routes = [
     children: [
       {
         path: 'incidencias',
-        title: 'Incidencias · 4 fases',
+        data: { titleKey: 'account.incidentsTitle' },
         loadComponent: () => import('./pages/notes/notes').then((m) => m.NotesPage),
         canDeactivate: [(component: { canLeave: () => boolean }) => component.canLeave()],
       },
       {
         path: 'historial',
-        title: 'Historial de incidencias',
+        data: { titleKey: 'account.historyTitle' },
         loadComponent: () => import('./pages/record/record').then((m) => m.RecordPage),
       },
       { path: 'record', pathMatch: 'full', redirectTo: 'historial' },
       {
         path: 'mapa/incidencia/:id',
-        title: 'Ficha de incidencia',
+        data: { titleKey: 'account.incidentDetailsTitle' },
         loadComponent: () => import('./pages/map-incident/map-incident').then((m) => m.MapIncidentPage),
       },
       {
         path: 'mapa',
-        title: 'Mapa de incidencias',
+        data: { titleKey: 'account.mapTitle' },
         loadComponent: () => import('./pages/map/map').then((m) => m.MapPage),
       },
       {
         path: 'cuenta/perfil',
-        title: 'Perfil de usuario',
+        data: { titleKey: 'account.profileTitle' },
         loadComponent: () => import('./pages/profile/profile').then((m) => m.ProfilePage),
       },
       {
         path: 'cuenta/contrasena',
-        title: 'Cambiar contraseña',
+        data: { titleKey: 'account.changePassword' },
         loadComponent: () =>
           import('./pages/change-password/change-password').then((m) => m.ChangePasswordPage),
       },
       {
         path: 'administracion/usuarios/nuevo',
-        title: 'Crear usuario',
+        data: { titleKey: 'account.createUser', mode: 'create' },
         canActivate: [adminGuard],
         canDeactivate: [(component: { canLeave: () => boolean }) => component.canLeave()],
-        data: { mode: 'create' },
         loadComponent: () =>
           import('./pages/admin-users/admin-users').then((m) => m.AdminUsersPage),
       },
       {
         path: 'administracion/usuarios',
-        title: 'Administración de usuarios',
+        data: { titleKey: 'account.usersTitle' },
         canActivate: [adminGuard],
         canDeactivate: [(component: { canLeave: () => boolean }) => component.canLeave()],
         loadComponent: () =>
@@ -65,7 +64,7 @@ export const routes: Routes = [
   { path: 'deteccion/:id', pathMatch: 'full', redirectTo: 'incidencias' },
   {
     path: 'login',
-    title: 'Acceso',
+    data: { titleKey: 'account.loginTitle' },
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/login/login').then((m) => m.LoginPage),
   },

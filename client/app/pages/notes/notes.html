@@ -1,26 +1,70 @@
 <section class="intro">
   <div>
-    <span>GESTIÓN DE INCIDENCIAS</span>
-    <h2>Una incidencia. Cuatro puntos.</h2>
-    <p>Registro, evidencias y validaciones por fase en un único seguimiento.</p>
+    <span>{{ dictionary.workflow.notes.kicker }}</span>
+    <h2>{{ dictionary.workflow.notes.heading }}</h2>
+    <p>{{ dictionary.workflow.notes.intro }}</p>
   </div>
-  <button type="button" [disabled]="busy()" (click)="newNote()">＋ Nueva incidencia</button>
+  <button type="button" [disabled]="busy()" (click)="newNote()">
+    {{ dictionary.workflow.notes.new }}
+  </button>
 </section>
-@if (error()) {<p class="error" role="alert">{{ error() }}</p>}
-@if (message()) {<p class="message" role="status">{{ message() }}</p>}
+@if (error()) {
+  <p class="error" role="alert">{{ error() }}</p>
+}
+@if (message()) {
+  <p class="message" role="status">{{ message() }}</p>
+}
 <section class="board">
   <aside class="notes-list">
-    <label class="search"><input #query type="search" aria-label="Buscar incidencias" placeholder="Buscar incidencias…" (input)="search.set(query.value)" /></label>
-    <div class="list-heading"><strong>{{ filtered().length }} INCIDENCIAS</strong><button type="button" [disabled]="busy()" (click)="load()">Recargar incidencias</button></div>
+    <label class="search"
+      ><input
+        #query
+        type="search"
+        [attr.aria-label]="dictionary.workflow.notes.searchLabel"
+        [placeholder]="dictionary.workflow.notes.searchPlaceholder"
+        (input)="search.set(query.value)"
+    /></label>
+    <div class="list-heading">
+      <strong>{{
+        i18n.format(
+          filtered().length === 1
+            ? dictionary.workflow.notes.countOne
+            : dictionary.workflow.notes.countMany,
+          { count: i18n.number(filtered().length) }
+        )
+      }}</strong
+      ><button type="button" [disabled]="busy()" (click)="load()">
+        {{ dictionary.workflow.notes.reload }}
+      </button>
+    </div>
     <div class="items">
-      @if (loading()) {<p class="empty" role="status">Cargando incidencias…</p>}
+      @if (loading()) {
+        <p class="empty" role="status">{{ dictionary.workflow.notes.loading }}</p>
+      }
       @for (note of filtered(); track note.id) {
         <article [class.active]="selected()?.id === note.id">
-          <button type="button" class="select-note" [disabled]="busy()" (click)="edit(note)"><strong>{{ note.title || 'Incidencia sin identificar' }}</strong><span>{{ note.content }}</span><b>{{ noteProgress(note) }}</b><time>{{ note.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</time></button>
-          <button class="remove" type="button" [disabled]="busy()" [attr.aria-label]="'Eliminar incidencia ' + note.title" (click)="remove(note)">×</button>
+          <button type="button" class="select-note" [disabled]="busy()" (click)="edit(note)">
+            <strong>{{ note.title || dictionary.workflow.notes.untitled }}</strong
+            ><span>{{ note.content }}</span
+            ><b>{{ noteProgress(note) }}</b
+            ><time>{{ i18n.date(note.updatedAt) }}</time>
+          </button>
+          <button
+            class="remove"
+            type="button"
+            [disabled]="busy()"
+            [attr.aria-label]="i18n.format(dictionary.workflow.notes.remove, { name: note.title })"
+            (click)="remove(note)"
+          >
+            ×
+          </button>
         </article>
       } @empty {
-        @if (!loading()) {<p class="empty">{{ search() ? 'No hay incidencias que coincidan.' : 'Registra una incidencia para iniciar el seguimiento.' }}</p>}
+        @if (!loading()) {
+          <p class="empty">
+            {{ search() ? dictionary.workflow.notes.noMatches : dictionary.workflow.notes.empty }}
+          </p>
+        }
       }
     </div>
   </aside>
@@ -37,23 +81,81 @@
       (busyChange)="workflowBusy.set($event)"
     >
       <section noteGeneral class="identity">
-        <h4>Alerta I&amp;W y geolocalización de anomalía</h4>
-        <p>Estos datos identifican la anomalía que I&amp;W transfiere a VELES.</p>
+        <h4>{{ dictionary.workflow.notes.identityHeading }}</h4>
+        <p>{{ dictionary.workflow.notes.identityIntro }}</p>
         <form [formGroup]="form" (ngSubmit)="save()">
-          <label>Identificador de alerta I&amp;W<input formControlName="title" maxlength="120" placeholder="Ej. I&W-2026-014 · anomalía de terreno" /></label>
+          <label
+            >{{ dictionary.workflow.notes.titleLabel
+            }}<input
+              formControlName="title"
+              maxlength="120"
+              [placeholder]="dictionary.workflow.notes.titlePlaceholder"
+          /></label>
           <div class="coordinates">
-            <label class="state">Corredor rural o área de interés<input formControlName="state" maxlength="100" placeholder="Corredor crítico, ruta o sector" /></label>
-            <label>Latitud de anomalía<input type="number" formControlName="altitude" min="-90" max="90" step="any" placeholder="Ej. 19.4326" /></label>
-            <label>Longitud de anomalía<input type="number" formControlName="longitude" min="-180" max="180" step="any" placeholder="Ej. -99.1332" /></label>
+            <label class="state"
+              >{{ dictionary.workflow.notes.stateLabel
+              }}<input
+                formControlName="state"
+                maxlength="100"
+                [placeholder]="dictionary.workflow.notes.statePlaceholder"
+            /></label>
+            <label
+              >{{ dictionary.workflow.notes.latitude
+              }}<input
+                type="number"
+                formControlName="altitude"
+                min="-90"
+                max="90"
+                step="any"
+                [placeholder]="dictionary.workflow.notes.latitudePlaceholder"
+            /></label>
+            <label
+              >{{ dictionary.workflow.notes.longitude
+              }}<input
+                type="number"
+                formControlName="longitude"
+                min="-180"
+                max="180"
+                step="any"
+                [placeholder]="dictionary.workflow.notes.longitudePlaceholder"
+            /></label>
           </div>
-          <label>Actividad anómala o cambio de superficie<textarea formControlName="content" maxlength="10000" rows="3" placeholder="Cambio observado antes de que la amenaza esté activa"></textarea></label>
+          <label
+            >{{ dictionary.workflow.notes.content
+            }}<textarea
+              formControlName="content"
+              maxlength="10000"
+              rows="3"
+              [placeholder]="dictionary.workflow.notes.contentPlaceholder"
+            ></textarea>
+          </label>
           @if (baseLocked()) {
-            <p class="hint">Estos datos quedaron vinculados a la validación de la Fase 1.</p>
+            <p class="hint">{{ dictionary.workflow.notes.locked }}</p>
           } @else {
             @if (!selected()) {
-              <p class="hint">Puedes recorrer todas las fases antes de guardar. Para registrar la incidencia, completa estos datos generales; los demás campos pueden quedar pendientes.</p>
+              <p class="hint">{{ dictionary.workflow.notes.newHint }}</p>
             }
-            <div class="actions"><small>{{ !selected() ? 'Incidencia sin guardar' : baseDirty() ? 'Cambios sin guardar' : 'Datos I&W guardados' }}</small><button type="submit" [disabled]="busy() || form.invalid || (!!selected() && !baseDirty())">{{ saving() ? 'Guardando…' : selected() ? 'Guardar datos I&W' : 'Guardar incidencia' }}</button></div>
+            <div class="actions">
+              <small>{{
+                !selected()
+                  ? dictionary.workflow.notes.unsaved
+                  : baseDirty()
+                    ? dictionary.workflow.editor.unsavedChanges
+                    : dictionary.workflow.notes.saved
+              }}</small
+              ><button
+                type="submit"
+                [disabled]="busy() || form.invalid || (!!selected() && !baseDirty())"
+              >
+                {{
+                  saving()
+                    ? dictionary.workflow.editor.saving
+                    : selected()
+                      ? dictionary.workflow.notes.saveDetails
+                      : dictionary.workflow.notes.saveIncident
+                }}
+              </button>
+            </div>
           }
         </form>
       </section>

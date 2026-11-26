@@ -1,5 +1,5 @@
-import { DatePipe } from '@angular/common';
-import { Component, HostListener, OnInit, computed, signal } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,15 +7,19 @@ import { firstValueFrom } from 'rxjs';
 import { NoteWorkflowPanel } from '../../components/notes/note-workflow';
 import { Note } from '../../core/models/note.model';
 import { emptyNoteWorkflow, noteProgress } from '../../core/models/note-workflow.model';
-import { noteError, NotesService } from '../../core/services/notes.service';
+import { NotesService } from '../../core/services/notes.service';
 
 @Component({
   selector: 'app-notes',
-  imports: [ReactiveFormsModule, DatePipe, NoteWorkflowPanel],
+  imports: [ReactiveFormsModule, NoteWorkflowPanel],
   templateUrl: './notes.html',
   styleUrl: './notes.less',
 })
 export class NotesPage implements OnInit {
+  readonly i18n = inject(I18nService);
+  get dictionary() {
+    return this.i18n.dictionary();
+  }
   readonly notes = signal<Note[]>([]);
   readonly selected = signal<Note | null>(null);
   readonly search = signal('');
@@ -26,9 +30,9 @@ export class NotesPage implements OnInit {
   readonly phaseDirty = signal(false);
   readonly resetToken = signal(0);
   readonly draftVersion = signal(0);
-  readonly message = signal('');
-  readonly error = signal('');
-  readonly noteProgress = noteProgress;
+  readonly message = this.i18n.message();
+  readonly error = this.i18n.message();
+  readonly noteProgress = (note: Note) => noteProgress(note, this.dictionary.workflow);
   readonly busy = computed(() => this.saving() || this.workflowBusy() || this.loading());
   readonly baseLocked = computed(
     () => !!this.selected()?.workflow?.phases.some((phase) => phase.validatedAt),
@@ -50,10 +54,10 @@ export class NotesPage implements OnInit {
     };
   });
   readonly filtered = computed(() => {
-    const term = this.search().trim().toLocaleLowerCase('es');
+    const term = this.search().trim().toLocaleLowerCase(this.i18n.locale());
     return term
       ? this.notes().filter((n) =>
-          `${n.title} ${n.content} ${n.state}`.toLocaleLowerCase('es').includes(term),
+          `${n.title} ${n.content} ${n.state}`.toLocaleLowerCase(this.i18n.locale()).includes(term),
         )
       : this.notes();
   });
@@ -108,10 +112,10 @@ export class NotesPage implements OnInit {
       if (selected) this.selectNote(selected);
       else {
         this.resetNote();
-        if (id) this.error.set('No se encontró la incidencia solicitada en tus registros.');
+        if (id) this.error.set({ key: 'workflow.notes.notFound' });
       }
     } catch (error) {
-      this.error.set(noteError(error));
+      this.error.set(this.i18n.errorRef(error));
     } finally {
       this.loading.set(false);
     }
@@ -185,12 +189,10 @@ export class NotesPage implements OnInit {
         : await firstValueFrom(this.notesService.create(input));
       this.updated(saved);
       this.message.set(
-        current
-          ? 'Datos de anomalía I&W guardados. Puedes capturar información en cualquier fase y completar los pendientes después.'
-          : 'Incidencia registrada. Lo escrito en las fases se conserva; guarda cada borrador para conservarlo al salir.',
+        current ? { key: 'workflow.notes.updated' } : { key: 'workflow.notes.created' },
       );
     } catch (error) {
-      this.error.set(noteError(error));
+      this.error.set(this.i18n.errorRef(error));
     } finally {
       this.saving.set(false);
     }
@@ -202,7 +204,7 @@ export class NotesPage implements OnInit {
   async remove(note: Note) {
     if (
       this.busy() ||
-      !confirm(`¿Eliminar la incidencia “${note.title}” y todo su proceso de validación?`)
+      !confirm(this.i18n.text('workflow.notes.confirmRemove', { name: note.title }))
     )
       return;
     this.saving.set(true);
@@ -212,7 +214,7 @@ export class NotesPage implements OnInit {
       this.notes.update((items) => items.filter((item) => item.id !== note.id));
       if (this.selected()?.id === note.id) this.resetNote();
     } catch (error) {
-      this.error.set(noteError(error));
+      this.error.set(this.i18n.errorRef(error));
     } finally {
       this.saving.set(false);
     }
@@ -221,7 +223,7 @@ export class NotesPage implements OnInit {
     if (this.saving() || this.workflowBusy()) return false;
     return (
       (!this.baseDirty() && !this.phaseDirty()) ||
-      confirm('Hay cambios sin guardar en esta incidencia. ¿Descartarlos y continuar?')
+      confirm(this.dictionary.workflow.notes.confirmLeave)
     );
   }
   @HostListener('window:beforeunload', ['$event']) beforeUnload(event: BeforeUnloadEvent) {

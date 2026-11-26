@@ -37,9 +37,12 @@ public sealed record PhaseValidationSnapshot(
     PhaseData Data,
     CatalogValidationSnapshot Catalogs);
 
-public sealed class CatalogRequestException(string message, int statusCode = StatusCodes.Status400BadRequest) : Exception(message)
+public sealed class CatalogRequestException(string message, string code, int statusCode = StatusCodes.Status400BadRequest,
+    IReadOnlyDictionary<string, object?>? parameters = null) : Exception(message)
 {
     public int StatusCode { get; } = statusCode;
+    public string Code { get; } = code;
+    public IReadOnlyDictionary<string, object?>? Parameters { get; } = parameters;
 }
 
 public sealed class CatalogUnavailableException(Exception? inner = null)

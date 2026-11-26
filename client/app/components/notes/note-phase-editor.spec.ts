@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Note } from '../../core/models/note.model';
 import { emptyNoteWorkflow, NotePhase } from '../../core/models/note-workflow.model';
 import { NotePhaseEditor } from './note-phase-editor';
+import { I18nService } from '../../core/i18n/i18n.service';
 
 const catalog = (code: string, label = code, active = true) => ({
   id: code,
@@ -46,7 +47,10 @@ describe('NotePhaseEditor catalogs', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('mine.ui.language');
+  });
 
   function flushIndications(activeSoil = true) {
     http
@@ -174,5 +178,55 @@ describe('NotePhaseEditor catalogs', () => {
 
     expect(component.form.controls.soil.value).toBe('legacy-soil');
     expect(component.options('soils', 'legacy-soil')[0].label).toBe('Etiqueta al validar');
+  });
+
+  it('traduce catálogos conocidos y mantiene etiquetas congeladas y valores originales', async () => {
+    phase = structuredClone(phase);
+    phase.validatedAt = '2026-11-25T12:00:00Z';
+    phase.catalogSnapshot = {
+      version: 7,
+      selections: [
+        {
+          field: 'season',
+          catalogKey: 'seasons',
+          code: 'dry',
+          label: 'Temporada al validar',
+          version: 7,
+        },
+      ],
+    };
+    phase.data.season = 'dry';
+    fixture.componentRef.setInput('phase', phase);
+    fixture.detectChanges();
+    flushIndications();
+    await fixture.whenStable();
+    expect(component.form.controls.season.value).toBe('dry');
+    TestBed.inject(I18nService).setLanguage('en');
+    fixture.detectChanges();
+
+    expect(component.options('seasons', 'dry')[0].label).toBe('Temporada al validar');
+    expect(
+      component.options('soils', 'legacy-soil').find((item) => item.code === 'legacy-soil')?.label,
+    ).toBe('Suelo histórico');
+    expect(component.options('indicationSignatures')[0].label).toBe(
+      'Surface removal or depression',
+    );
+    expect(component.catalogs().indicationSignatures![0].label).toBe('Remoción');
+    expect(component.form.controls.season.value).toBe('dry');
+    http.expectNone('/api/catalogs');
+  });
+
+  it('retraduce un error de catálogo visible y conserva el borrador', async () => {
+    component.form.controls.baseline.setValue('Mi borrador');
+    http
+      .expectOne((request) => request.params.get('stage') === 'indications')
+      .flush('fallo', { status: 503, statusText: 'Unavailable' });
+    await fixture.whenStable();
+    expect(component.catalogsError()).toContain('El borrador se conserva');
+    TestBed.inject(I18nService).setLanguage('en');
+    fixture.detectChanges();
+    expect(component.catalogsError()).toContain('Your draft is retained');
+    expect(component.form.controls.baseline.value).toBe('Mi borrador');
+    http.expectNone('/api/catalogs');
   });
 });

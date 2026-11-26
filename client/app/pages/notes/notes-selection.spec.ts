@@ -5,6 +5,7 @@ import { NotesService } from '../../core/services/notes.service';
 import { NotesPage } from './notes';
 
 describe('NotesPage link selection', () => {
+  beforeEach(() => localStorage.removeItem('mine.ui.language'));
   it('does not select a different incident when the requested id is absent', async () => {
     TestBed.configureTestingModule({providers: [
       { provide: NotesService, useValue: { list: () => of([{ id: 'other', title: 'Otra', content: '', state: '', altitude: 1, longitude: 1 }]) } },

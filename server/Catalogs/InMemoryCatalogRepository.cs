@@ -27,7 +27,7 @@ public sealed class InMemoryCatalogRepository(IConfiguration configuration) : IC
 
     public async Task<CatalogOptionRecord?> FindAsync(string key, string code, string? stage, CancellationToken cancellationToken)
     {
-        if (!CatalogRegistry.TryGetTable(key, out _)) throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.");
+        if (!CatalogRegistry.TryGetTable(key, out _)) throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.", "catalog_key_invalid", parameters: new Dictionary<string, object?> { ["key"] = key });
         var all = await Load(cancellationToken);
         return all[key].SingleOrDefault(option => option.Code == code && Applies(option, stage));
     }

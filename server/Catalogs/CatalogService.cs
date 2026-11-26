@@ -12,7 +12,7 @@ public sealed class CatalogService(ICatalogRepository repository)
     {
         ValidateStage(stage);
         foreach (var key in keys)
-            if (!CatalogRegistry.TryGetTable(key, out _)) throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.");
+            if (!CatalogRegistry.TryGetTable(key, out _)) throw new CatalogRequestException($"La clave de catálogo '{key}' no es válida.", "catalog_key_invalid", parameters: new Dictionary<string, object?> { ["key"] = key });
 
         var records = await repository.GetAsync(keys, stage, includeInactive, cancellationToken);
         var version = records.Values.SelectMany(options => options).Select(option => option.Version).DefaultIfEmpty(0).Max();
@@ -97,9 +97,9 @@ public sealed class CatalogService(ICatalogRepository repository)
     {
         var option = await resolver(catalogKey, code, stage, cancellationToken);
         if (option is null)
-            throw new WorkflowException($"El valor de '{field}' no pertenece al catálogo o a la fase indicada.", StatusCodes.Status400BadRequest, [field]);
+            throw new WorkflowException($"El valor de '{field}' no pertenece al catálogo o a la fase indicada.", "catalog_selection_invalid", StatusCodes.Status400BadRequest, [field], new Dictionary<string, object?> { ["field"] = field });
         if (!option.Active && !string.Equals(code, previousCode, StringComparison.Ordinal))
-            throw new WorkflowException($"La opción de '{field}' fue desactivada. Recarga los catálogos antes de continuar.", StatusCodes.Status409Conflict, [field]);
+            throw new WorkflowException($"La opción de '{field}' fue desactivada. Recarga los catálogos antes de continuar.", "catalog_selection_inactive", StatusCodes.Status409Conflict, [field], new Dictionary<string, object?> { ["field"] = field });
         return option;
     }
 
@@ -165,6 +165,6 @@ public sealed class CatalogService(ICatalogRepository repository)
     private static void ValidateStage(string? stage)
     {
         if (stage is not null && !CatalogRegistry.IsStage(stage))
-            throw new CatalogRequestException("La fase indicada no es válida.");
+            throw new CatalogRequestException("La fase indicada no es válida.", "catalog_stage_invalid");
     }
 }

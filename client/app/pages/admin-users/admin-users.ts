@@ -1,3 +1,4 @@
+import { I18nService, Message } from '../../core/i18n/i18n.service';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, ElementRef, HostListener, inject, signal, ViewChild } from '@angular/core';
@@ -20,19 +21,21 @@ import {
   styleUrl: './admin-users.less',
 })
 export class AdminUsersPage {
+  readonly i18n = inject(I18nService);
+  get dictionary() { return this.i18n.dictionary(); }
   readonly createMode = inject(ActivatedRoute, { optional: true })?.snapshot.data['mode'] === 'create';
   readonly loading = signal(false);
   readonly submitting = signal(false);
   readonly roles = signal<AdminRoleOption[]>([]);
-  readonly rolesError = signal('');
+  readonly rolesError = this.i18n.message();
   readonly users = signal<AdminUserSummary[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly pageSize = signal(25);
-  readonly error = signal('');
-  readonly success = signal('');
+  readonly error = this.i18n.message();
+  readonly success = this.i18n.message();
   readonly temporaryPassword = signal('');
-  readonly copyMessage = signal('');
+  readonly copyMessage = this.i18n.message();
   readonly adminPassword = new FormControl('', { nonNullable: true });
   readonly pendingCreation = signal<{ intent: string; key: string } | null>(null);
   readonly pendingReset = signal<{ user: AdminUserSummary; key: string } | null>(null);
@@ -102,11 +105,20 @@ export class AdminUsersPage {
     try {
       const roles = await firstValueFrom(this.admin.listRoles());
       this.roles.set(roles ?? []);
-      if (!roles?.length) this.rolesError.set('No hay roles disponibles. Revisa el catálogo y vuelve a intentar.');
+      if (!roles?.length) this.rolesError.set({ key: 'account.noRoles' });
     } catch {
       this.roles.set([]);
-      this.rolesError.set('No fue posible cargar los roles. Vuelve a intentar.');
+      this.rolesError.set({ key: 'account.rolesError' });
     }
+  }
+
+  roleLabel(code: string, original = code): string {
+    const labels: Record<string, string> = {
+      operador: this.dictionary.account.roleOperator,
+      validador: this.dictionary.account.roleValidator,
+      administrador: this.dictionary.account.roleAdministrator,
+    };
+    return labels[code] ?? this.roles().find(role => role.code === code)?.label ?? original;
   }
 
   hasRole(code: string): boolean {
@@ -115,7 +127,7 @@ export class AdminUsersPage {
 
   canLeave(): boolean {
     if (this.submitting() || this.pendingCreation() || this.pendingReset() || this.temporaryPassword()) {
-      this.error.set('Resuelve la solicitud pendiente y guarda la contraseña temporal antes de salir.');
+      this.error.set({ key: 'account.pendingBeforeExit' });
       return false;
     }
     return true;
@@ -139,14 +151,14 @@ export class AdminUsersPage {
     const { username, displayName, role } = this.createForm.getRawValue();
     const command = { username: username.trim(), displayName: displayName.trim(), role };
     if (!command.username || !command.displayName || !role) {
-      this.error.set('Completa nombre de usuario, nombre visible y rol antes de crear.');
+      this.error.set({ key: 'account.createRequired' });
       return;
     }
 
     const intent = JSON.stringify(command);
     const existing = this.pendingCreation();
     if (existing && existing.intent !== intent) {
-      this.error.set('Hay una creación pendiente. Reinténtala con los mismos datos o cancélala antes de cambiarlos.');
+      this.error.set({ key: 'account.creationConflict' });
       return;
     }
     const generation = this.creationGeneration;
@@ -162,11 +174,11 @@ export class AdminUsersPage {
         if (!isCurrent()) return;
         const password = response.body?.temporaryPassword ?? '';
         if (typeof password !== 'string' || !password) {
-          this.error.set('La respuesta no incluyó la contraseña temporal. Reintenta la misma solicitud para recuperarla.');
+          this.error.set({ key: 'account.creationMissingPassword' });
           return;
         }
         this.temporaryPassword.set(password);
-        this.success.set('Usuario creado con contraseña temporal.');
+        this.success.set({ key: 'account.userCreated' });
         this.createForm.reset({ username: '', displayName: '', role: '' });
         const dialog = this.passwordDialog?.nativeElement;
         if (dialog && !dialog.open) {
@@ -235,12 +247,12 @@ export class AdminUsersPage {
       try {
         const response = await firstValueFrom(this.admin.resetPassword(reset.user.id, reset.user.managementVersion, reset.key));
         if (!response || typeof response.temporaryPassword !== 'string' || !response.temporaryPassword) {
-          this.error.set('No se recibió la contraseña temporal. Reintenta la misma solicitud.');
+          this.error.set({ key: 'account.resetMissingPassword' });
           return;
         }
         this.pendingReset.set(null);
         this.temporaryPassword.set(response.temporaryPassword);
-        this.success.set(`Contraseña temporal generada para ${reset.user.username}.`);
+        this.success.set({ key: 'account.temporaryPasswordGenerated', params: { name: reset.user.username } });
         const dialog = this.passwordDialog?.nativeElement;
         if (dialog && !dialog.open) {
           if (typeof dialog.showModal === 'function') dialog.showModal();
@@ -261,7 +273,7 @@ export class AdminUsersPage {
     this.pendingReset.set(null);
     this.adminPassword.reset('');
     await this.loadUsers();
-    this.error.set('La solicitud anterior pudo procesarse. Revisa el usuario y crea una nueva solicitud si es necesario.');
+    this.error.set({ key: 'account.resetDiscarded' });
   }
 
   async changeRole(user: AdminUserSummary, role: string): Promise<void> {
@@ -299,12 +311,12 @@ export class AdminUsersPage {
     await this.performMutation(async () => {
       if (role) {
         await firstValueFrom(this.admin.changeRole(user.id, { role, expectedManagementVersion: user.managementVersion }));
-        this.success.set(`Rol actualizado para ${user.username}.`);
+        this.success.set({ key: 'account.roleUpdated', params: { name: user.username } });
       } else if (status) {
         await firstValueFrom(this.admin.changeStatus(user.id, {
           isActive: status === 'active', expectedManagementVersion: user.managementVersion,
         }));
-        this.success.set(`Estado actualizado para ${user.username}.`);
+        this.success.set({ key: 'account.statusUpdated', params: { name: user.username } });
       }
     });
   }
@@ -336,7 +348,7 @@ export class AdminUsersPage {
     const password = this.adminPassword.value;
     this.adminPassword.reset('');
     if (!password) {
-      this.error.set('Confirma tu contraseña de administrador antes de realizar la operación.');
+      this.error.set({ key: 'account.adminPasswordRequired' });
       return;
     }
     this.submitting.set(true);
@@ -364,7 +376,7 @@ export class AdminUsersPage {
     this.pendingCreation.set(null);
     this.adminPassword.reset('');
     this.error.set('');
-    this.success.set('Solicitud descartada. Si ya se procesó, verifica el listado antes de crearla de nuevo.');
+    this.success.set({ key: 'account.creationDiscarded' });
   }
 
   closePasswordDialog(): void {
@@ -383,9 +395,9 @@ export class AdminUsersPage {
   async copyTemporaryPassword(): Promise<void> {
     try {
       await navigator.clipboard.writeText(this.temporaryPassword());
-      this.copyMessage.set('Contraseña copiada.');
+      this.copyMessage.set({ key: 'account.passwordCopied' });
     } catch {
-      this.copyMessage.set('No fue posible copiar la contraseña. Selecciónala y cópiala manualmente.');
+      this.copyMessage.set({ key: 'account.copyFailed' });
     }
   }
 
@@ -401,40 +413,40 @@ export class AdminUsersPage {
     void this.loadUsers();
   }
 
-  private describeError(error: unknown): string {
+  private describeError(error: unknown): Message {
     if (error instanceof HttpErrorResponse) {
       const body = error.error && typeof error.error === 'object' ? error.error : {};
       const code = typeof (body as { code?: string }).code === 'string' ? (body as { code: string }).code : '';
-      if (code === 'reauthentication_failed') return 'No fue posible confirmar la contraseña de administrador.';
-      if (code === 'admin_reauthentication_required') return 'Confirma de nuevo tu contraseña de administrador.';
-      if (code === 'username_conflict') return 'El nombre de usuario ya existe.';
-      if (code === 'stale_management_version') return 'La cuenta cambió. Revisa los datos actualizados antes de reintentar.';
-      if (code === 'self_management_forbidden') return 'No puedes modificar tu propia cuenta administrativa.';
-      if (code === 'last_active_administrator') return 'Debe permanecer al menos un administrador activo.';
-      if (code === 'reset_result_unavailable') return 'La contraseña temporal anterior no está disponible. Revisa el usuario actualizado y realiza una nueva solicitud.';
-      if (code === 'user_inactive') return 'El usuario está inactivo. Actívalo antes de restablecer su contraseña.';
-      if (code === 'idempotency_result_expired') return 'El resultado expiró y la contraseña temporal ya no se puede recuperar. Revisa el listado antes de continuar.';
-      if (code === 'idempotency_key_reused') return 'Esta solicitud ya se utilizó con otros datos. Revisa el listado antes de continuar.';
-      if (error.status === 409) return 'La solicitud entró en conflicto. Revisa los datos antes de reintentar.';
-      if (error.status === 429) return 'Se alcanzó el límite de intentos. Inténtalo más tarde.';
-      if (code === 'permission_denied') return 'No tienes permisos para gestionar usuarios.';
-      if (code === 'authentication_required') return 'Debes iniciar sesión otra vez para continuar.';
-      if (code === 'csrf_invalid') return 'No se pudo validar la solicitud. Vuelve a confirmar tu contraseña y reintenta sin recargar la página.';
+      if (code === 'reauthentication_failed') return { key: 'account.reauthenticationFailed' };
+      if (code === 'admin_reauthentication_required') return { key: 'account.reauthenticationRequired' };
+      if (code === 'username_conflict') return { key: 'account.usernameConflict' };
+      if (code === 'stale_management_version') return { key: 'account.staleManagementVersion' };
+      if (code === 'self_management_forbidden') return { key: 'account.selfManagementForbidden' };
+      if (code === 'last_active_administrator') return { key: 'account.lastActiveAdministrator' };
+      if (code === 'reset_result_unavailable') return { key: 'account.resetResultUnavailable' };
+      if (code === 'user_inactive') return { key: 'account.userInactive' };
+      if (code === 'idempotency_result_expired') return { key: 'account.idempotencyExpired' };
+      if (code === 'idempotency_key_reused') return { key: 'account.idempotencyReused' };
+      if (error.status === 409) return { key: 'account.adminConflict' };
+      if (error.status === 429) return { key: 'account.adminRateLimit' };
+      if (code === 'permission_denied') return { key: 'account.permissionDenied' };
+      if (code === 'authentication_required') return { key: 'account.adminAuthentication' };
+      if (code === 'csrf_invalid') return { key: 'account.adminCsrf' };
       if (code === 'validation_failed') {
         const fields = (body as { fieldErrors?: unknown }).fieldErrors;
         if (fields && typeof fields === 'object' && !Array.isArray(fields)) {
           const errors = fields as Record<string, unknown>;
-          const messages: string[] = [];
-          if (Object.hasOwn(errors, 'username')) messages.push('El usuario debe tener de 3 a 64 caracteres: letras sin acentos, números, punto, guion o guion bajo.');
-          if (Object.hasOwn(errors, 'displayName')) messages.push('El nombre visible debe tener de 1 a 120 caracteres sin caracteres de control.');
-          if (Object.hasOwn(errors, 'role')) messages.push('Selecciona un rol válido del catálogo.');
-          if (Object.hasOwn(errors, 'idempotencyKey')) messages.push('No se pudo validar el identificador de la solicitud.');
-          if (messages.length) return messages.join(' ');
+          const messages: Message[] = [];
+          if (Object.hasOwn(errors, 'username')) messages.push({ key: 'account.usernameValidation' });
+          if (Object.hasOwn(errors, 'displayName')) messages.push({ key: 'account.displayNameValidation' });
+          if (Object.hasOwn(errors, 'role')) messages.push({ key: 'account.roleValidation' });
+          if (Object.hasOwn(errors, 'idempotencyKey')) messages.push({ key: 'account.idempotencyValidation' });
+          if (messages.length) return messages;
         }
-        return 'La solicitud de administración no es válida.';
+        return { key: 'account.adminValidation' };
       }
-      if (error.status === 403) return 'Tu perfil no puede gestionar usuarios.';
+      if (error.status === 403) return { key: 'account.adminForbidden' };
     }
-    return 'No se pudo completar la operación de administración.';
+    return { key: 'account.adminError' };
   }
 }
