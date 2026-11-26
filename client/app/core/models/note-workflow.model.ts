@@ -137,8 +137,8 @@ export interface NoteWorkflow {
 
 export const emptyPhaseData = (): NotePhaseData => ({
   review: emptyReview(),
-  soil: '',
-  season: '',
+  soil: 'unknown',
+  season: 'unknown',
   terrainNotes: '',
   evidence: [],
   indications: {

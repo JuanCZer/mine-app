@@ -4,15 +4,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { NotePhaseEditor } from '../../components/notes/note-phase-editor';
 import { NoteWorkflowPanel } from '../../components/notes/note-workflow';
 import { Note } from '../../core/models/note.model';
-import { emptyNoteWorkflow, NotePhase, NotePhaseData, noteProgress } from '../../core/models/note-workflow.model';
+import { emptyNoteWorkflow, noteProgress } from '../../core/models/note-workflow.model';
 import { noteError, NotesService } from '../../core/services/notes.service';
 
 @Component({
   selector: 'app-notes',
-  imports: [ReactiveFormsModule, DatePipe, NoteWorkflowPanel, NotePhaseEditor],
+  imports: [ReactiveFormsModule, DatePipe, NoteWorkflowPanel],
   templateUrl: './notes.html',
   styleUrl: './notes.less',
 })
@@ -34,12 +33,11 @@ export class NotesPage implements OnInit {
   readonly baseLocked = computed(
     () => !!this.selected()?.workflow?.phases.some((phase) => phase.validatedAt),
   );
-  readonly initialPhase: NotePhase = emptyNoteWorkflow().phases[0];
   readonly draftNote = computed<Note>(() => {
     this.draftVersion();
     const values = this.form.getRawValue();
     return {
-      id: 'phase-one-draft',
+      id: 'new-incident-draft',
       title: values.title,
       content: values.content,
       state: values.state,
@@ -124,11 +122,13 @@ export class NotesPage implements OnInit {
   }
   edit(note: Note) {
     if (this.busy() || note.id === this.selected()?.id || !this.canLeave()) return;
+    this.resetToken.update((value) => value + 1);
     this.selectNote(note);
     this.message.set('');
     this.error.set('');
   }
   private resetNote() {
+    this.resetToken.update((value) => value + 1);
     this.selected.set(null);
     this.form.enable({ emitEvent: false });
     this.form.reset(
@@ -147,7 +147,6 @@ export class NotesPage implements OnInit {
     });
   }
   private selectNote(note: Note) {
-    const changedNote = this.selected()?.id !== note.id;
     this.selected.set(note);
     this.form.reset(
       {
@@ -163,7 +162,6 @@ export class NotesPage implements OnInit {
     else this.form.enable({ emitEvent: false });
     this.baseDirty.set(false);
     this.draftVersion.update((value) => value + 1);
-    if (changedNote) this.phaseDirty.set(false);
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { note: note.id },
@@ -187,30 +185,11 @@ export class NotesPage implements OnInit {
         : await firstValueFrom(this.notesService.create(input));
       this.updated(saved);
       this.message.set(
-        'Datos de anomalía I&W guardados. Puedes capturar información en cualquier fase y completar los pendientes después.',
+        current
+          ? 'Datos de anomalía I&W guardados. Puedes capturar información en cualquier fase y completar los pendientes después.'
+          : 'Incidencia registrada. Lo escrito en las fases se conserva; guarda cada borrador para conservarlo al salir.',
       );
     } catch (error) {
-      this.error.set(noteError(error));
-    } finally {
-      this.saving.set(false);
-    }
-  }
-  async createWithPhase(data: NotePhaseData) {
-    if (this.form.invalid || this.busy() || this.selected()) {
-      this.form.markAllAsTouched();
-      return;
-    }
-    this.saving.set(true);
-    this.message.set('');
-    this.error.set('');
-    let created: Note | null = null;
-    try {
-      created = await firstValueFrom(this.notesService.create(this.form.getRawValue()));
-      const saved = await firstValueFrom(this.notesService.savePhase(created, 'indications', data));
-      this.updated(saved);
-      this.message.set('Incidencia y borrador de Fase 1 I&W guardados. Ya puedes navegar entre las cuatro fases.');
-    } catch (error) {
-      if (created) this.updated(created);
       this.error.set(noteError(error));
     } finally {
       this.saving.set(false);

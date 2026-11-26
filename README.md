@@ -2,7 +2,7 @@
 
 Aplicación Angular con API ASP.NET Core. Cada incidencia reúne el registro de indicios, las evidencias y las cuatro fases del proceso: **indicios → reconocimiento → vigilancia → mitigación**.
 
-La ruta inicial `/incidencias` permite navegar entre las cuatro fases y guardar borradores incompletos sin validar las anteriores. Cada fase muestra sus requisitos pendientes. La validación formal conserva su orden y requisitos, con comprobaciones tanto en la interfaz como en la API.
+La ruta inicial `/incidencias` permite navegar y capturar datos en las cuatro fases desde una incidencia nueva, incluso antes del primer guardado. Para conservar los borradores en el servidor, primero se registra la incidencia con sus datos generales y después se guarda cada fase, sin tener que completar ni validar las anteriores. Cada fase muestra sus requisitos pendientes. La validación formal conserva su orden y requisitos, con comprobaciones tanto en la interfaz como en la API.
 
 [Campos, reglas de validación y contrato de la API](docs/note-phases.md).
 

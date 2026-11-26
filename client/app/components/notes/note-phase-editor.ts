@@ -7,6 +7,7 @@ import {
   input,
   output,
   signal,
+  untracked,
   ViewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -62,6 +63,7 @@ export class NotePhaseEditor {
     'Guarda primero los cambios en los datos generales de la incidencia.',
   );
   readonly resetToken = input(0);
+  readonly contextKey = input<number | null>(null);
   readonly saved = output<NotePhaseData>();
   readonly validated = output<void>();
   readonly dirtyChange = output<boolean>();
@@ -134,6 +136,7 @@ export class NotePhaseEditor {
   );
   @ViewChild(EvidencePanel) evidencePanel?: EvidencePanel;
   private loadedKey = '';
+  private loadedContext = '';
   readonly form = new FormGroup({
     baseline: new FormControl('', { nonNullable: true, validators: Validators.maxLength(500) }),
     comparison: new FormControl('', { nonNullable: true, validators: Validators.maxLength(500) }),
@@ -281,9 +284,14 @@ export class NotePhaseEditor {
     effect(() => this.dirtyChange.emit(this.dirty()));
     effect(() => {
       const phase = this.phase();
-      const key = `${this.resetToken()}:${this.note().id}:${phase.stage}:${phase.validatedAt}:${JSON.stringify(phase.data)}`;
+      const context = `${this.resetToken()}:${this.contextKey() ?? this.note().id}:${phase.stage}`;
+      const key = `${context}:${phase.validatedAt}:${JSON.stringify(phase.data)}`;
       if (key === this.loadedKey) return;
+      const preserveDraft = context === this.loadedContext && !phase.validatedAt && untracked(this.dirty);
       this.loadedKey = key;
+      this.loadedContext = context;
+      // Creating the incident returns empty server phases; local drafts still belong to this session.
+      if (preserveDraft) return;
       const defaults = emptyPhaseData();
       const loaded = structuredClone(phase.data);
       const data = {

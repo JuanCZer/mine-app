@@ -1,5 +1,27 @@
 # Plan: navegación libre entre fases
 
+## Corrección del 25 de noviembre: borradores nuevos
+
+La captura del dominio muestra el código actualizado, cero incidencias y botones con «Registra la incidencia». La causa es el camino separado de creación en `notes.html`, que entrega `note=null` al panel y solo muestra un editor de fase 1. La primera implementación no cubrió este recorrido.
+
+- [x] Reproducir con una prueba de página completa: lista vacía, datos generales vacíos y clic en fase 2.
+- [x] Unificar la pantalla nueva/guardada en `NoteWorkflowPanel`, manteniendo captura libre y guardado explícito de datos generales. Trabajar directamente en `main`, conforme a la preferencia del usuario.
+- [x] Preservar fase seleccionada, campos y evidencias al crear; impedir peticiones de fases con ID provisional; reiniciar los borradores al cambiar/descartar/recargar.
+- [x] Ejecutar pruebas de regresión, compilación y revisión final. Actualizar documentación de uso.
+
+La especificación se amplía para cubrir navegación antes de crear la incidencia. Se mantienen los requisitos de la API al guardar y validar; no se requiere cambio del servidor ni migración SQL.
+
+Verificación de esta corrección:
+
+- Las cuatro pruebas nuevas de página fallaron inicialmente porque los círculos estaban deshabilitados con cero incidencias. Tras unificar el panel, permiten navegar desde el estado vacío, conservan campos y evidencia al registrar, conservan datos tras fallo HTTP y reinician borradores al descartar/cambiar de incidencia.
+- La suite completa detectó que los datos generales no se proyectaban a través del panel. Se agregó una prueba DOM y se corrigió la proyección con `ngProjectAs`; la prueba ahora pulsa el botón real **Guardar incidencia**. La guía oficial utilizada fue [proyección de contenido de Angular](https://angular.dev/guide/components/content-projection).
+- `npm test -- --watch=false`: 154/154 pruebas, 21 archivos, sin fallos. `npm run build:clean`: compilación de producción correcta, sin advertencias. `git diff --check`: sin problemas.
+- Revisión independiente: detectó dos problemas y se corrigieron con regresiones RED→GREEN. (1) Las fases editadas antes de registrar conservaban suelo/temporada vacíos, rechazados por `CheckDraft`; se alinearon los valores iniciales con `unknown` de la API y se comprobó el payload enviado. (2) Seleccionar solo la fuente de evidencia no marcaba cambios; ahora la fuente participa en el estado pendiente y se conserva tras crear.
+- Verificación final después de esas correcciones: **155/155 pruebas Angular**, **34/34 pruebas HTTP de fases**, build .NET sin errores/advertencias y **build de producción correcto**. Las pruebas HTTP usan el proveedor JSON aislado. No se necesita una migración.
+- Alcance confirmado durante la revisión: el registro inicial no guarda automáticamente todas las fases; los borradores son locales hasta guardarlos explícitamente. Persistencia tras terminar el navegador y recuperación idempotente ante una respuesta de creación perdida siguen fuera de este cambio.
+- Trabajo local en `main`. No se cambió servidor, contrato ni SQL; no se ha publicado esta corrección al dominio.
+
+
 **Objetivo:** permitir cambiar de fase y capturar borradores sin completar o validar fases anteriores, manteniendo los avisos de pendientes.
 
 **Arquitectura:** separar edición y validación en la API; mantener editores visitados en Angular para conservar cambios locales. Sin migración de datos.

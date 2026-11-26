@@ -37,6 +37,13 @@
     La validación formal mantiene el orden: indicios → reconocimiento → vigilancia → mitigación.
     Guarda los borradores para conservarlos al salir de la incidencia.
   </p>
+  @if (isNew()) {
+    <p class="sequence" role="status">
+      Incidencia nueva: puedes recorrer y completar las cuatro fases desde ahora. Para guardar,
+      completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Después guarda el
+      borrador de cada fase que hayas editado.
+    </p>
+  }
   @if (error()) {
     <p class="error" role="alert">
       {{ error() }} Puedes usar «Recargar incidencias» para obtener la versión actual.
@@ -62,14 +69,20 @@
           [note]="record"
           [phase]="workflow().phases[0]"
           [resetToken]="resetToken()"
+          [contextKey]="contextKey()"
           [editable]="editable('indications')"
           [validationBlockedReason]="validationBlockedReason('indications')"
           [busy]="busy() || parentBusy()"
-          [basePending]="basePending()"
+          [basePending]="isNew() || basePending()"
+          [basePendingMessage]="
+            isNew()
+              ? 'Para guardar este borrador, completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Puedes cambiar de fase mientras tanto.'
+              : 'Guarda primero los cambios en los datos generales de la incidencia.'
+          "
           (saved)="save($event)"
           (validated)="validate()"
         >
-          <ng-content select="[noteGeneral]" />
+          <ng-content select="[noteGeneral]" ngProjectAs="[noteGeneral]" />
         </app-note-phase-editor>
       </div>
     }
@@ -80,10 +93,16 @@
             [note]="record"
             [phase]="phase"
             [resetToken]="resetToken()"
+            [contextKey]="contextKey()"
             [editable]="editable(phase.stage)"
             [validationBlockedReason]="validationBlockedReason(phase.stage)"
             [busy]="busy() || parentBusy()"
-            [basePending]="basePending()"
+            [basePending]="isNew() || basePending()"
+            [basePendingMessage]="
+              isNew()
+                ? 'Para guardar este borrador, completa los datos generales de la Fase 1 y pulsa «Guardar incidencia». Puedes cambiar de fase mientras tanto.'
+                : 'Guarda primero los cambios en los datos generales de la incidencia.'
+            "
             (saved)="save($event)"
             (validated)="validate()"
           />

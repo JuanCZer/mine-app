@@ -28,6 +28,9 @@ import { NotePhaseEditor } from './note-phase-editor';
 })
 export class NoteWorkflowPanel {
   readonly note = input<Note | null>(null);
+  readonly isNew = input(false);
+  // Stable through the first server save; changes when the user starts another editing session.
+  readonly contextKey = input<number | null>(null);
   readonly basePending = input(false);
   readonly parentBusy = input(false);
   readonly showEmpty = input(true);
@@ -49,15 +52,16 @@ export class NoteWorkflowPanel {
   readonly editorDirty = computed(() => this.editors().some((editor) => editor.dirty()));
   readonly message = signal('');
   readonly error = signal('');
-  private noteId: string | null = null;
+  private noteContext: string | number | null = null;
 
   constructor() {
     effect(() => this.busyChange.emit(this.busy()));
     effect(() => this.dirtyChange.emit(this.editorDirty()));
     effect(() => {
       const note = this.note();
-      if ((note?.id ?? null) === this.noteId) return;
-      this.noteId = note?.id ?? null;
+      const context = this.contextKey() ?? note?.id ?? null;
+      if (context === this.noteContext) return;
+      this.noteContext = context;
       const workflow = note?.workflow ?? emptyNoteWorkflow();
       const stage =
         workflow.currentStage ??
@@ -90,6 +94,8 @@ export class NoteWorkflowPanel {
       : 'Completa · sin validar';
   }
   validationBlockedReason(stage: DetectionStage): string {
+    if (this.isNew())
+      return 'Guarda la incidencia antes de validar sus fases. Puedes seguir capturando datos y cambiar de fase.';
     if (this.workflow().currentStage !== stage)
       return 'Para validar esta fase, valida primero las anteriores. Puedes capturar datos y cambiar de fase sin hacerlo.';
     if (this.editors().some((editor) => editor.phase().stage !== stage && editor.dirty()))
@@ -108,7 +114,15 @@ export class NoteWorkflowPanel {
   }
   async save(data: NotePhaseData) {
     const note = this.note();
-    if (!note || !this.editable() || this.busy() || this.parentBusy() || this.basePending()) return;
+    if (
+      !note ||
+      this.isNew() ||
+      !this.editable() ||
+      this.busy() ||
+      this.parentBusy() ||
+      this.basePending()
+    )
+      return;
     await this.perform(async () => {
       const updated = await firstValueFrom(this.service.savePhase(note, this.selected(), data));
       this.editor()?.markSaved();
@@ -122,6 +136,7 @@ export class NoteWorkflowPanel {
     const note = this.note();
     if (
       !note ||
+      this.isNew() ||
       !this.editable() ||
       this.workflow().currentStage !== this.selected() ||
       this.editorDirty() ||

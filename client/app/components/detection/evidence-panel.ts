@@ -245,7 +245,7 @@ export class EvidencePanel {
       .pipe(takeUntilDestroyed())
       .subscribe(() =>
         this.draftChange.emit(
-          !!(this.form.controls.reference.value || this.form.controls.summary.value),
+          !!(this.form.controls.sensor.value || this.form.controls.reference.value || this.form.controls.summary.value),
         ),
       );
   }

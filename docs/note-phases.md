@@ -13,8 +13,8 @@ La vigilancia precede a la mitigación según la página 26 del PDF. La numeraci
 
 ## Guardar y validar son acciones distintas
 
-1. Guardar el registro inicial permite entrar a cualquiera de las cuatro fases.
-2. Capturar información y referencias de evidencia en cualquier orden. Los requisitos pendientes se muestran como avisos y no impiden cambiar de fase.
+1. Desde **Nueva incidencia**, incluso con cero registros, se puede entrar a cualquiera de las cuatro fases y capturar información y referencias de evidencia en cualquier orden. Los requisitos pendientes se muestran como avisos y no impiden cambiar de fase.
+2. Para persistir los datos, completar la identificación, descripción, área y coordenadas generales de la Fase 1 y pulsar **Guardar incidencia**. No hace falta completar los demás campos de esa fase. Este primer guardado conserva los borradores locales de todas las fases y sus evidencias a medio escribir; cada borrador debe guardarse después de manera explícita.
 3. **Guardar borrador de fase** conserva lo capturado en el servidor, incluso si está incompleto. Los valores deben tener formato válido. Guardar no valida.
 4. **Validar fase** solicita a la API verificar todos los requisitos de la versión guardada. La validación formal mantiene el orden de las cuatro fases y es independiente de la navegación.
 

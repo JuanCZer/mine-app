@@ -205,7 +205,7 @@
     @if (pendingEvidence()) {<p class="notice">Agrega al borrador la evidencia que estás escribiendo o limpia sus campos.</p>}
     @if (validationBlockedReason()) {<p class="notice">{{ validationBlockedReason() }}</p>}
     <div class="actions">
-      <span>{{ dirty() ? 'Cambios sin guardar' : 'Borrador guardado; aún requiere validación' }}</span>
+      <span>{{ dirty() ? 'Cambios sin guardar' : 'Sin cambios locales pendientes' }}</span>
       <button type="button" class="secondary" [disabled]="busy() || !catalogsReady() || basePending() || pendingEvidence() || form.invalid || !dirty()" (click)="save()">{{ busy() ? 'Procesando…' : 'Guardar borrador de fase' }}</button>
       <button type="button" class="primary" [disabled]="busy() || !catalogsReady() || basePending() || dirty() || issues().length > 0 || !!validationBlockedReason()" (click)="validate()">{{ validationLabel() }}</button>
     </div>
